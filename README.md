@@ -1,4 +1,4 @@
-Custom keyboard shortcuts:\n
+Custom keyboard shortcuts:
 Execute JS code on custom keyboard shortcuts.
 Link to forum: https://forum.vivaldi.net/topic/33122/custom-keyboard-shortcuts-mod
 
