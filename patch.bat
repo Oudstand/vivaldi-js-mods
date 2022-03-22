@@ -58,7 +58,7 @@ setlocal disabledelayedexpansion
 (
   FOR /F "tokens=*" %%A IN (temp0.txt) DO (
     ECHO %%A
-    IF "%%A" EQU "<script src="bundle.js"></script>" (
+    IF "%%A" EQU "<script defer src="background-common-bundle.js"></script>    <script defer src="bundle.js"></script>" (
       echo ^<script src="Compiled_User_JS.js"^>^</script^>
     )
   )
