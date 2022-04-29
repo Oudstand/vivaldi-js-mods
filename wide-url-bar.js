@@ -13,9 +13,12 @@ function createWideUrlBarStyle() {
     sheet.replaceSync(`
         .wideUrlBar.UrlBar-AddressField:focus-within {
             width: 40vw !important;
-            margin-top: 0 !important;
+            margin-top: 5px;
             height: 30px;
             /* extends the width of the url bar addressfield while it is focused */
+        }
+        .maximized .wideUrlBar.UrlBar-AddressField:focus-within{
+            margin-top: 0 !important;
         }
         .UrlBar-AddressField {
             transition: .2s ease-in-out !important;
