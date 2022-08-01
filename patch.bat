@@ -1,3 +1,6 @@
+:: end Vivaldi ::
+taskkill /F /IM vivaldi.exe /T
+
 :::::::::::::::::::::::::::::::::::::::::::
 :: Script to copy over your Vivaldi mods ::
 :: by Christoph142                       ::
@@ -89,5 +92,9 @@ echo.
 echo All done^^! :)   !SuccessfulPatched! !cnt! .js files^^!
 echo.
 echo.
-timeout 3
+
+:: Start Vivaldi ::
+cd ..
+cd Application
+vivaldi.exe
 exit
