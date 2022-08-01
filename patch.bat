@@ -94,7 +94,9 @@ echo.
 echo.
 
 :: Start Vivaldi ::
+echo Start Vivaldi^^!
 cd ..
 cd Application
-vivaldi.exe
+start vivaldi.exe
+timeout 5
 exit
