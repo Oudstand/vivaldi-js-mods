@@ -46,7 +46,7 @@ function panelMouseOver(autoHide, delay_show, delay_change, delay_hide) {
         }
         show_token = setTimeout(function() {
             var newButton = buttons[index];
-            if (!newButton.getAttribute('class').includes('active')) {
+            if (!['active', 'add', 'webpanel-suggestion'].some(cls => newButton.classList.contains(cls))) {
                 activeButton = newButton;
                 activeButton.click();
                 panel = index;
