@@ -2,13 +2,13 @@
     adjusts the padding of the tabs container to the extensions if the number of visible extension changes
 */
 setTimeout(function waitMergeTabbar() {
-    const browser = document.getElementById('browser');
+    /* const browser = document.getElementById('browser');
     if (browser) {
         observeExtensionsWidth();
     } else {
         setTimeout(waitMergeTabbar, 300);
     }
-}, 300);
+}, 300); */
 
 function observeExtensionsWidth() {
     let toolbarExtensions = document.querySelector('.toolbar-extensions');
