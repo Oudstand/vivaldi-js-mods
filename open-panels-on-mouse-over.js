@@ -1,7 +1,7 @@
 // https://forum.vivaldi.net/topic/28413/open-panels-on-mouse-over/22?_=1593504963587
 function panelMouseOver(autoHide, delay_show, delay_change, delay_hide) {
     var buttons = document.getElementById('switch').getElementsByTagName('button');
-    buttons = [...buttons].filter(button => button.title !== 'http://empty/');
+    buttons = [...buttons].filter(button => !['Divider', 'Spacer', 'FlexibleSpacer', 'Settings', 'PanelWeb'].some(name => button.name === name));
     var show_token = null;
     var activeButton = null;
     /* Stop timer if mouse exits screen */
