@@ -1,8 +1,9 @@
 setTimeout(function waitWideUrlBar() {
-    const browser = document.getElementById('browser');
-    if (browser) {
+    const browser = document.getElementById('browser'),
+        urlBar = document.querySelector('.UrlBar-AddressField');
+    if (browser && urlBar) {
         createWideUrlBarStyle();
-        addUlrBarObserver();
+        addUlrBarObserver(urlBar);
     } else {
         setTimeout(waitWideUrlBar, 300);
     }
@@ -27,9 +28,8 @@ function createWideUrlBarStyle() {
     document.adoptedStyleSheets = [sheet];
 }
 
-function addUlrBarObserver() {
-    let urlBar = document.querySelector('.UrlBar-AddressField'),
-        target = urlBar.querySelector('.observer'),
+function addUlrBarObserver(urlBar) {
+    let target = urlBar.querySelector('.observer'),
         observer = new MutationObserver(mutation => {
             if (target.querySelector('.OmniDropdown') !== null) {
                 urlBar.classList.add('wideUrlBar');
