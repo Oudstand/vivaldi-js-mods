@@ -1,7 +1,7 @@
 // https://forum.vivaldi.net/topic/28413/open-panels-on-mouse-over/22?_=1593504963587
 function panelMouseOver(autoHide, delay_show, delay_change, delay_hide) {
     var buttons = document.getElementById('switch').getElementsByTagName('button');
-    buttons = [...buttons].filter(button => !['Divider', 'Spacer', 'FlexibleSpacer', 'Settings', 'PanelWeb'].some(name => button.name === name));
+    buttons = [...buttons].filter(button => !['Divider', 'Spacer', 'FlexibleSpacer', 'Settings', 'PanelWeb'].includes(button.name));
     var show_token = null;
     var activeButton = null;
     /* Stop timer if mouse exits screen */
@@ -23,8 +23,8 @@ function panelMouseOver(autoHide, delay_show, delay_change, delay_hide) {
     }
 
     function activeButtonIndex() {
-        for (let i = 0; i < buttons.length - 2; i++) {
-            if (buttons[i].getAttribute('class').includes('active')) {
+        for (let i = 0; i < buttons.length; i++) {
+            if (buttons[i].parentElement.getAttribute('class').includes('active')) {
                 return i;
             }
         }
@@ -46,16 +46,17 @@ function panelMouseOver(autoHide, delay_show, delay_change, delay_hide) {
         }
         show_token = setTimeout(function() {
             var newButton = buttons[index];
-            if (!['active', 'add', 'webpanel-suggestion'].some(cls => newButton.classList.contains(cls))) {
+            if (!['active', 'add', 'webpanel-suggestion', 'addwebpanel'].some(cls => newButton.classList.contains(cls))) {
                 activeButton = newButton;
-                activeButton.click();
+                activeButton.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }));
+                activeButton.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
                 panel = index;
             }
         }, delay);
     }
 
     function setListeners() {
-        for (let index = 0; index < buttons.length - 2; index++) {
+        for (let index = 0; index < buttons.length; index++) {
             buttons[index].onmouseover = function() {
                 setActive(index, true);
             };
@@ -72,8 +73,9 @@ function panelMouseOver(autoHide, delay_show, delay_change, delay_hide) {
     function hidePanel(isFloating) {
         if (isFloating) {
             activeButton = activeButton ? activeButton : getActiveButton();
-            if (activeButton && (activeButton.getAttribute('class').includes("active"))) {
-                activeButton.click();
+            if (activeButton && (activeButton.parentElement.getAttribute('class').includes("active"))) {
+                activeButton.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }));
+                activeButton.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
                 activeButton = null;
             }
         }
@@ -96,6 +98,7 @@ function addObserver() {
     const observer = new MutationObserver(callback);
     observer.observe(switchPanel, config);
 };
+
 setTimeout(function waitMouseOver() {
     const browser = document.getElementById('browser');
     if (browser) {
