@@ -1,13 +1,6 @@
 :: end Vivaldi ::
 taskkill /F /IM vivaldi.exe /T
 
-:::::::::::::::::::::::::::::::::::::::::::
-:: Script to copy over your Vivaldi mods ::
-:: by Christoph142                       ::
-:::::::::::::::::::::::::::::::::::::::::::
-
-
-
 @echo off
 setlocal enabledelayedexpansion
 
@@ -49,23 +42,24 @@ for %%i in (%installPaths%) do (
 			copy /y "!latestVersionFolder!\window.html" "!latestVersionFolder!\window.bak.html"
 		)
 		echo.
+	)	
+)
 
 findstr /v Compiled_User_JS.js "!latestVersionFolder!\window.html" > temp0.txt
 
-
-
-
-
 setlocal disabledelayedexpansion 
+
 
 (
   FOR /F "tokens=*" %%A IN (temp0.txt) DO (
     ECHO %%A
-    IF "%%A" EQU "<link rel="stylesheet" href="chrome://vivaldi-data/css-mods/css" />" (
+  	IF "%%A" EQU "</body>" (
       echo ^<script src="Compiled_User_JS.js"^>^</script^>
     )
+    
   )
 ) >temp.txt
+
 
 setlocal enabledelayedexpansion 
 
@@ -83,10 +77,6 @@ for %%A in (*.js) do set /a cnt+=1
 set "SuccessfulPatched=Succesfully Patched"
 
 
-
-
-)
-)
 echo.
 echo.
 echo All done^^! :)   !SuccessfulPatched! !cnt! .js files^^!
