@@ -52,11 +52,10 @@ setlocal disabledelayedexpansion
 
 (
   FOR /F "tokens=*" %%A IN (temp0.txt) DO (
-    ECHO %%A
   	IF "%%A" EQU "</body>" (
       echo ^<script src="custom.js"^>^</script^>
     )
-    
+    ECHO %%A
   )
 ) >temp.txt
 
