@@ -45,7 +45,7 @@ for %%i in (%installPaths%) do (
 	)	
 )
 
-findstr /v Compiled_User_JS.js "!latestVersionFolder!\window.html" > temp0.txt
+findstr /v custom.js "!latestVersionFolder!\window.html" > temp0.txt
 
 setlocal disabledelayedexpansion 
 
@@ -54,7 +54,7 @@ setlocal disabledelayedexpansion
   FOR /F "tokens=*" %%A IN (temp0.txt) DO (
     ECHO %%A
   	IF "%%A" EQU "</body>" (
-      echo ^<script src="Compiled_User_JS.js"^>^</script^>
+      echo ^<script src="custom.js"^>^</script^>
     )
     
   )
@@ -65,7 +65,7 @@ setlocal enabledelayedexpansion
 
 
 
-type *.js > !latestVersionFolder!\Compiled_User_JS.js
+type *.js > !latestVersionFolder!\custom.js
 move /Y temp.txt "!latestVersionFolder!window.html"
 del temp0.txt
 echo.
