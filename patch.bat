@@ -22,14 +22,14 @@ set nrOfInstalls=0
 set "SuccessfulPatched=Couldn't Patch :^("
 
 for %%i in (%installPaths%) do (
-	<NUL set /p=Searching for newest browser.html in %%~dpi... 
+	<NUL set /p=Searching for newest window.html in %%~dpi... 
 	set /a nrOfInstalls=nrOfInstalls+1
 
 	set installPath=%%~dpi
 	set latestVersionFolder=
 
 	for /f "tokens=*" %%a in ('dir /a:-d /b /s "!installPath!"') do (
-		if "%%~nxa"=="browser.html" set latestVersionFolder=%%~dpa
+		if "%%~nxa"=="window.html" set latestVersionFolder=%%~dpa
 	)
 
 	if not defined latestVersionFolder (
@@ -42,15 +42,15 @@ for %%i in (%installPaths%) do (
 		echo Found it.
 		echo.
 
-		if exist !latestVersionFolder!\browser.bak.html (
+		if exist !latestVersionFolder!\window.bak.html (
 			echo Backup is already in place.
 		) else (
-			echo Creating a backup of your original browser.html file.
-			copy /y "!latestVersionFolder!\browser.html" "!latestVersionFolder!\browser.bak.html"
+			echo Creating a backup of your original window.html file.
+			copy /y "!latestVersionFolder!\window.html" "!latestVersionFolder!\window.bak.html"
 		)
 		echo.
 
-findstr /v Compiled_User_JS.js "!latestVersionFolder!\browser.html" > temp0.txt
+findstr /v Compiled_User_JS.js "!latestVersionFolder!\window.html" > temp0.txt
 
 
 
@@ -61,7 +61,7 @@ setlocal disabledelayedexpansion
 (
   FOR /F "tokens=*" %%A IN (temp0.txt) DO (
     ECHO %%A
-    IF "%%A" EQU "<script src="background-common-bundle.js"></script>    <script src="bundle.js"></script>" (
+    IF "%%A" EQU "<link rel="stylesheet" href="chrome://vivaldi-data/css-mods/css" />" (
       echo ^<script src="Compiled_User_JS.js"^>^</script^>
     )
   )
@@ -72,7 +72,7 @@ setlocal enabledelayedexpansion
 
 
 type *.js > !latestVersionFolder!\Compiled_User_JS.js
-move /Y temp.txt "!latestVersionFolder!browser.html"
+move /Y temp.txt "!latestVersionFolder!window.html"
 del temp0.txt
 echo.
 echo Copied files^^!
