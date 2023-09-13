@@ -99,7 +99,7 @@ function addObserver() {
     observer.observe(switchPanel, config);
 };
 
-/* setTimeout(function waitMouseOver() {
+setTimeout(function waitMouseOver() {
     const browser = document.getElementById('browser');
     if (browser) {
         panelMouseOver(true, 100, 50, 250);
@@ -107,4 +107,4 @@ function addObserver() {
     } else {
         setTimeout(waitMouseOver, 300);
     }
-}, 300); */
+}, 300);
