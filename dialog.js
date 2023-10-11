@@ -185,7 +185,7 @@
    */
   function keyCombo(id, combination) {
     const SHORTCUTS = {
-      "Alt+Shift+Period": () => {
+      "Ctrl+Alt+Period": () => {
         // Open Default Search Engine in Dialog
         chrome.tabs
           .query({ active: true })
