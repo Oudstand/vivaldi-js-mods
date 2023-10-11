@@ -1,5 +1,5 @@
 (function () {
-  let searchEngineCollection, defaultSearchId, privateSearchId, webview;
+  let searchEngineCollection, defaultSearchId, privateSearchId, webview, divContainer;
 
   // Wait for the browser to come to a ready state
   setTimeout(function waitDialog() {
@@ -208,8 +208,9 @@
    * removes the dialog
    */
   function removeDialog() {
-    if (webview) {
-      webview.parentNode.remove();
+    if (divContainer) {
+      divContainer.remove();
+      divContainer = undefined;
       webview = undefined;
     }
   }
@@ -220,9 +221,9 @@
    */
   function dialogTab(linkUrl) {
     webview = document.createElement("webview");
+    divContainer = document.createElement("div");
     let webviewId = "dialog-" + getWebviewId(),
       divOptionContainer = document.createElement("div"),
-      divContainer = document.createElement("div"),
       progressBarContainer = document.createElement("div"),
       progressBar = document.createElement("div");
 
@@ -333,7 +334,7 @@
   function showWebviewOptions(webviewId, thisElement) {
     var inputId = "input-" + webviewId;
     console.log(document.getElementById(inputId) === null, webviewId);
-    if (document.getElementById(inputId) === null) {
+    if (webview && document.getElementById(inputId) === null) {
       let webviewSrc = webview.src,
         input = document.createElement("input", "text"),
         buttonBack = createOptionsButton(),
