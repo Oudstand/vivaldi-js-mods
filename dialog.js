@@ -296,6 +296,7 @@
     divContainer.style.transitionDuration = "0.1s";
     divContainer.style.transitionTimingFunction = "ease";
     divContainer.style.transitionDelay = "0s";
+    divContainer.style.backdropFilter = "blur(1px)";
 
     divContainer.addEventListener("click", function (event) {
       if (event.target === this) {
