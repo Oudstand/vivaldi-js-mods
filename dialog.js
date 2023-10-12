@@ -1,5 +1,5 @@
 (function () {
-  let searchEngineCollection, defaultSearchId, privateSearchId, webview, divContainer;
+  let searchEngineCollection, defaultSearchId, privateSearchId, webviews = new Map();
 
   // Wait for the browser to come to a ready state
   setTimeout(function waitDialog() {
@@ -195,7 +195,7 @@
             )
           );
       },
-      Esc: removeDialog,
+      Esc: () => removeDialog(webviews.keys().toArray().pop()),
     };
 
     const customShortcut = SHORTCUTS[combination];
@@ -207,11 +207,11 @@
   /**
    * removes the dialog
    */
-  function removeDialog() {
-    if (divContainer) {
-      divContainer.remove();
-      divContainer = undefined;
-      webview = undefined;
+  function removeDialog(webviewId) {
+    let data = webviews.get(webviewId);
+    if (data) {
+      data.divContainer.remove();
+      webviews.delete(webviewId);
     }
   }
 
@@ -220,12 +220,15 @@
    * @param {string} linkUrl the url to load
    */
   function dialogTab(linkUrl) {
-    webview = document.createElement("webview");
-    divContainer = document.createElement("div");
-    let webviewId = "dialog-" + getWebviewId(),
+    let divContainer = document.createElement("div"),
+      webview = document.createElement("webview"),      
+      webviewId = "dialog-" + getWebviewId(),
       divOptionContainer = document.createElement("div"),
       progressBarContainer = document.createElement("div"),
       progressBar = document.createElement("div");
+
+    
+    webviews.set(webviewId, {divContainer: divContainer, webview: webview});
 
     //#region webview properties
     webview.setAttribute("src", linkUrl);
@@ -300,7 +303,7 @@
 
     divContainer.addEventListener("click", function (event) {
       if (event.target === this) {
-        removeDialog();
+        removeDialog(webviewId);
       }
     });
     //#endregion
@@ -333,7 +336,9 @@
    * @param {Object} thisElement the current instance divOptionContainer (div) element
    */
   function showWebviewOptions(webviewId, thisElement) {
-    var inputId = "input-" + webviewId;
+    let inputId = "input-" + webviewId,
+      data = webviews.get(webviewId),
+      webview = data ? data.webview : undefined;
     console.log(document.getElementById(inputId) === null, webviewId);
     if (webview && document.getElementById(inputId) === null) {
       let webviewSrc = webview.src,
