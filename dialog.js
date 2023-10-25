@@ -61,12 +61,7 @@
    * Checks if a link is clicked by middle mouse while pressing Ctrl + Alt, then fires an event with the Url
    */
   function setUrlClickObserver() {
-    // document.addEventListener("mousemove", (event) => {
-    //   let link = getLinkElement(event.target);
-    //   if (link) {
-    //     // chrome.runtime.sendMessage({ url: link.href });
-    //   }
-    // });
+    if(this.dialogEventListenerSet) return;
 
     document.addEventListener("mousedown", function(event) {
       // Check if the Ctrl key, Shift key, and middle mouse button were pressed
@@ -80,6 +75,8 @@
         }
       }
     });
+
+    this.dialogEventListenerSet = true;
 
     const getLinkElement = (el) => {
       do {
