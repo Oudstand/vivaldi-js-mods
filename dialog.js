@@ -61,11 +61,11 @@
    * Checks if a link is clicked by middle mouse while pressing Ctrl + Alt, then fires an event with the Url
    */
   function setUrlClickObserver() {
-    if(this.dialogEventListenerSet) return;
+    if (this.dialogEventListenerSet) return;
 
     document.addEventListener("mousedown", function(event) {
       // Check if the Ctrl key, Shift key, and middle mouse button were pressed
-      if (event.ctrlKey && event.altKey && (event.button === 0 || event.button === 1)) {
+      if (event.buttons === 6 || (event.ctrlKey && event.altKey && (event.button === 0 || event.button === 1))) {
         let link = getLinkElement(event.target);
         if (link) {
           event.preventDefault();
