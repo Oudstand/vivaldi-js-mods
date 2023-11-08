@@ -1,5 +1,8 @@
-(function() {
-  let searchEngineCollection, defaultSearchId, privateSearchId, webviews = new Map();
+(function () {
+  let searchEngineCollection,
+    defaultSearchId,
+    privateSearchId,
+    webviews = new Map();
 
   // Wait for the browser to come to a ready state
   setTimeout(function waitDialog() {
@@ -22,10 +25,10 @@
         }
       });
       chrome.tabs.onUpdated.addListener((tabId, data) => {
-        if (data.status === "complete") {
+        if (data.status === chrome.tabs.TabStatus.COMPLETE) {
           chrome.scripting.executeScript({
             target: {
-              tabId: tabId
+              tabId: tabId,
             },
             func: setUrlClickObserver,
             args: [tabId],
@@ -63,20 +66,37 @@
   function setUrlClickObserver() {
     if (this.dialogEventListenerSet) return;
 
-    document.addEventListener("mousedown", function(event) {
+    let timer;
+    document.addEventListener("mousedown", function (event) {
       // Check if the Ctrl key, Shift key, and middle mouse button were pressed
-      if (event.buttons === 6 || (event.ctrlKey && event.altKey && (event.button === 0 || event.button === 1))) {
-        let link = getLinkElement(event.target);
-        if (link) {
-          event.preventDefault();
-          chrome.runtime.sendMessage({
-            url: link.href
-          });
-        }
+      if (event.ctrlKey && event.altKey && (event.button === 0 || event.button === 1)) {
+        showDialog(event);
+      }
+
+      if (event.button === 1) {
+        timer = setTimeout(() => {
+          showDialog(event);
+        }, 500);
+      }
+    });
+
+    document.addEventListener("mouseup", function (event) {
+      if(event.button === 1) {
+          clearTimeout(timer);
       }
     });
 
     this.dialogEventListenerSet = true;
+
+    const showDialog = (event) => {
+      let link = getLinkElement(event.target);
+      if (link) {
+        event.preventDefault();
+        chrome.runtime.sendMessage({
+          url: link.href,
+        });
+      }
+    };
 
     const getLinkElement = (el) => {
       do {
@@ -112,8 +132,8 @@
 
     createContextMenuSelectSearch();
 
-    chrome.contextMenus.onClicked.addListener(function(itemInfo) {
-      chrome.windows.getLastFocused(function(window) {
+    chrome.contextMenus.onClicked.addListener(function (itemInfo) {
+      chrome.windows.getLastFocused(function (window) {
         if (window.id === vivaldiWindowId && window.state !== "minimized") {
           if (itemInfo.menuItemId === "dialog-tab-link") {
             dialogTab(itemInfo.linkUrl);
@@ -137,7 +157,7 @@
   function createContextMenuSelectSearch() {
     searchEngineCollection
       .filter((e) => e.removed !== true)
-      .forEach(function(engine) {
+      .forEach(function (engine) {
         chrome.contextMenus.create({
           id: "select-search-dialog-tab" + engine.id,
           parentId: "select-search-dialog-tab",
@@ -154,7 +174,7 @@
   function createOrRemoveContextMenuSelectSearch(oldValue) {
     oldValue.engines
       .filter((e) => e.removed !== true)
-      .forEach(function(engine) {
+      .forEach(function (engine) {
         chrome.contextMenus.remove("select-search-dialog-tab" + engine.id);
       });
     createContextMenuSelectSearch();
@@ -174,7 +194,7 @@
    * @param {int} engineId engine id of the required engine
    */
   function getEngine(engineId) {
-    return searchEngineCollection.find(function(engine) {
+    return searchEngineCollection.find(function (engine) {
       return engine.id === engineId;
     });
   }
@@ -190,7 +210,7 @@
         // Open Default Search Engine in Dialog
         chrome.tabs
           .query({
-            active: true
+            active: true,
           })
           .then((tabs) =>
             vivaldi.utilities.getSelectedText(tabs[0].id, (text) =>
@@ -230,10 +250,9 @@
       progressBarContainer = document.createElement("div"),
       progressBar = document.createElement("div");
 
-
     webviews.set(webviewId, {
       divContainer: divContainer,
-      webview: webview
+      webview: webview,
     });
 
     //#region webview properties
@@ -245,7 +264,7 @@
     webview.style.overflow = "hidden";
     webview.style.borderRadius = "10px";
 
-    webview.addEventListener("loadstart", function() {
+    webview.addEventListener("loadstart", function () {
       this.style.backgroundColor = "var(--colorBorder)";
       document.getElementById("progressBar-" + webviewId).style.display =
         "block";
@@ -254,7 +273,7 @@
         document.getElementById("input-" + this.id).value = this.src;
       }
     });
-    webview.addEventListener("loadstop", function() {
+    webview.addEventListener("loadstop", function () {
       document.getElementById("progressBar-" + webviewId).style.display =
         "none";
     });
@@ -270,7 +289,7 @@
     divOptionContainer.innerHTML = getEllipsisContent();
 
     let timeout;
-    divOptionContainer.addEventListener("mouseover", function() {
+    divOptionContainer.addEventListener("mouseover", function () {
       if (divOptionContainer.children.length === 1) {
         divOptionContainer.innerHTML = "";
         showWebviewOptions(webviewId, divOptionContainer);
@@ -280,7 +299,7 @@
         timeout = undefined;
       }
     });
-    divOptionContainer.addEventListener("mouseleave", function() {
+    divOptionContainer.addEventListener("mouseleave", function () {
       if (!timeout) {
         timeout = setTimeout(() => {
           while (divOptionContainer.firstChild) {
@@ -307,7 +326,7 @@
     divContainer.style.transitionDelay = "0s";
     divContainer.style.backdropFilter = "blur(1px)";
 
-    divContainer.addEventListener("click", function(event) {
+    divContainer.addEventListener("click", function (event) {
       if (event.target === this) {
         removeDialog(webviewId);
       }
@@ -364,28 +383,28 @@
       input.style.margin = "0 0.5rem 0 0.5rem";
 
       buttonBack.innerHTML = getBackButtonContent();
-      buttonBack.addEventListener("click", function(event) {
+      buttonBack.addEventListener("click", function (event) {
         if (event.target === this || this.firstChild) {
           webview.back();
         }
       });
 
       buttonForward.innerHTML = getForwardButtonContent();
-      buttonForward.addEventListener("click", function(event) {
+      buttonForward.addEventListener("click", function (event) {
         if (event.target === this || this.firstChild) {
           webview.forward();
         }
       });
 
       buttonNewTab.innerHTML = getNewtabContent();
-      buttonNewTab.addEventListener("click", function(event) {
+      buttonNewTab.addEventListener("click", function (event) {
         if (event.target === this || this.firstChild) {
           openNewTab(inputId, true);
         }
       });
 
       buttonBackgroundTab.innerHTML = getBacktabContent();
-      buttonBackgroundTab.addEventListener("click", function(event) {
+      buttonBackgroundTab.addEventListener("click", function (event) {
         if (event.target === this || this.firstChild) {
           openNewTab(inputId, false);
         }
