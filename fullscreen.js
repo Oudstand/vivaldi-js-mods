@@ -9,8 +9,18 @@ let fullScreenInterval = setInterval(() => {
 
   if (webView) {
     clearInterval(fullScreenInterval);
-    let fullscreenEnabled = true;
-    vivaldi.tabsPrivate.onKeyboardShortcut.addListener((id, combination) => combination === "Ctrl+Alt+F" && toggleFullScreen());
+    let fullscreenEnabled;
+
+    chrome.storage.local.get("fullScreenModEnabled").then((value) => {
+      fullscreenEnabled = value.fullScreenModEnabled || value.fullScreenModEnabled == undefined;
+      if (fullscreenEnabled) {
+        addFullScreenListener();
+      }
+    });
+
+    vivaldi.tabsPrivate.onKeyboardShortcut.addListener(
+      (id, combination) => combination === "Ctrl+Alt+F" && toggleFullScreen()
+    );
 
     const style = document.createElement("style");
     style.appendChild(
@@ -27,15 +37,10 @@ let fullScreenInterval = setInterval(() => {
     hoverDiv.style.zIndex = 1;
     document.body.insertBefore(hoverDiv, document.body.firstChild);
 
-    if (fullscreenEnabled) {
-      addFullScreenListener();
-    }
-
     function toggleFullScreen() {
       fullscreenEnabled = !fullscreenEnabled;
-      fullscreenEnabled
-        ? addFullScreenListener()
-        : removeFullScreenListener();
+      fullscreenEnabled ? addFullScreenListener() : removeFullScreenListener();
+      chrome.storage.local.set({fullScreenModEnabled: fullscreenEnabled})
     }
 
     function addFullScreenListener() {
