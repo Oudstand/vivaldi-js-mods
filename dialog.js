@@ -2,22 +2,27 @@
   let searchEngineCollection,
     defaultSearchId,
     privateSearchId,
+    createdContextMenuIds = [],
     webviews = new Map();
 
   // Wait for the browser to come to a ready state
   setTimeout(function waitDialog() {
     const browser = document.getElementById("browser");
     if (browser) {
-      vivaldi.searchEngines.getTemplateUrls().then((searchEnignes) => {
-        searchEngineCollection = searchEnignes.templateUrls;
-        defaultSearchId = searchEnignes.defaultSearch;
-        privateSearchId = searchEnignes.defaultPrivate;
+      // Create a context menu item to call on a link
+      createContextMenuOption();
 
-        // Create a context menu item to call on a link
-        createContextMenuOption();
-        // Setup keyboard shortcuts
-        vivaldi.tabsPrivate.onKeyboardShortcut.addListener(keyCombo);
+      // create initial search engine context menus
+      updateSearchEnginesAndContextMenu();
+
+      // detect changes in search engines and recreate the context menus
+      vivaldi.searchEngines.onTemplateUrlsChanged.addListener((a, b) => {
+        removeContextMenuSelectSearch();
+        updateSearchEnginesAndContextMenu();
       });
+
+      // Setup keyboard shortcuts
+      vivaldi.tabsPrivate.onKeyboardShortcut.addListener(keyCombo);
 
       chrome.runtime.onMessage.addListener((message) => {
         if (message.url) {
@@ -35,26 +40,6 @@
           });
         }
       });
-
-      /* chrome.storage.local.get({
-                'SEARCH_ENGINE_COLLECTION': {
-                    engines: []
-                }
-            }, function (res) {
-                searchEngineCollection = res.SEARCH_ENGINE_COLLECTION;
-
-                // Create a context menu item to call on a link
-                createContextMenuOption();
-                // Setup keyboard shortcuts
-                vivaldi.tabsPrivate.onKeyboardShortcut.addListener(keyCombo);
-            }); 
-
-            chrome.storage.local.onChanged.addListener(function (changes, namespace) {
-                if (changes.SEARCH_ENGINE_COLLECTION) {
-                    searchEngineCollection = changes.SEARCH_ENGINE_COLLECTION.newValue;
-                    createOrRemoveContextMenuSelectSearch(changes.SEARCH_ENGINE_COLLECTION.oldValue)
-                }
-            });*/
     } else {
       setTimeout(waitDialog, 300);
     }
@@ -69,7 +54,11 @@
     let timer;
     document.addEventListener("mousedown", function (event) {
       // Check if the Ctrl key, Shift key, and middle mouse button were pressed
-      if (event.ctrlKey && event.altKey && (event.button === 0 || event.button === 1)) {
+      if (
+        event.ctrlKey &&
+        event.altKey &&
+        (event.button === 0 || event.button === 1)
+      ) {
         showDialog(event);
       }
 
@@ -81,8 +70,8 @@
     });
 
     document.addEventListener("mouseup", function (event) {
-      if(event.button === 1) {
-          clearTimeout(timer);
+      if (event.button === 1) {
+        clearTimeout(timer);
       }
     });
 
@@ -130,8 +119,6 @@
       contexts: ["selection"],
     });
 
-    createContextMenuSelectSearch();
-
     chrome.contextMenus.onClicked.addListener(function (itemInfo) {
       chrome.windows.getLastFocused(function (window) {
         if (window.id === vivaldiWindowId && window.state !== "minimized") {
@@ -155,29 +142,43 @@
    * Creates sub-context menu items for select search engine menu item
    */
   function createContextMenuSelectSearch() {
-    searchEngineCollection
-      .filter((e) => e.removed !== true)
-      .forEach(function (engine) {
+    searchEngineCollection.forEach(function (engine) {
+      if (!createdContextMenuIds.includes(engine.id)) {
         chrome.contextMenus.create({
           id: "select-search-dialog-tab" + engine.id,
           parentId: "select-search-dialog-tab",
           title: engine.name,
           contexts: ["selection"],
         });
-      });
+        createdContextMenuIds.push(engine.id);
+      }
+    });
+  }
+
+  /**
+   * updates the search engines and context menu
+   */
+  function updateSearchEnginesAndContextMenu() {
+    vivaldi.searchEngines.getTemplateUrls().then((searchEnignes) => {
+      searchEngineCollection = searchEnignes.templateUrls;
+      defaultSearchId = searchEnignes.defaultSearch;
+      privateSearchId = searchEnignes.defaultPrivate;
+
+      createContextMenuSelectSearch();
+    });
   }
 
   /**
    * Updates sub-context menu items for select search engine menu item
    * @param {Object} oldValue the value that is used as reference to old sub-menu items
    */
-  function createOrRemoveContextMenuSelectSearch(oldValue) {
-    oldValue.engines
-      .filter((e) => e.removed !== true)
-      .forEach(function (engine) {
+  function removeContextMenuSelectSearch() {
+    searchEngineCollection.forEach(function (engine) {
+      if (createdContextMenuIds.includes(engine.id)) {
         chrome.contextMenus.remove("select-search-dialog-tab" + engine.id);
-      });
-    createContextMenuSelectSearch();
+        createdContextMenuIds.splice(createdContextMenuIds.indexOf(engine.id), 1);
+      }
+    });
   }
 
   /**
