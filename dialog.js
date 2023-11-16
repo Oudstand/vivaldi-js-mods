@@ -287,10 +287,11 @@
         //#endregion
 
         //#region divOptionContainer properties
+        divOptionContainer.style.position = "fixed";
         divOptionContainer.style.width = "100%";
         divOptionContainer.style.textAlign = "center";
         divOptionContainer.style.alignItems = "center";
-        divOptionContainer.style.marginTop = (100 - (90 - 5 * webviews.size)) / 2 - 4 + "%";
+        divOptionContainer.style.top = (100 - (90 - 5 * webviews.size)) / 2 - 4 + "%";
         divOptionContainer.style.color = "white";
         divOptionContainer.style.zIndex = "1160";
         divOptionContainer.innerHTML = getEllipsisContent();
