@@ -13,7 +13,7 @@
 
     // Wait for the browser to come to a ready state
     setTimeout(function waitDialog() {
-        const browser = document.getElementById("browser");
+        const browser = document.getElementById('browser');
         if (browser) {
             // Create a context menu item to call on a link
             createContextMenuOption();
@@ -22,7 +22,7 @@
             updateSearchEnginesAndContextMenu();
 
             // detect changes in search engines and recreate the context menus
-            vivaldi.searchEngines.onTemplateUrlsChanged.addListener((a, b) => {
+            vivaldi.searchEngines.onTemplateUrlsChanged.addListener(() => {
                 removeContextMenuSelectSearch();
                 updateSearchEnginesAndContextMenu();
             });
@@ -56,7 +56,7 @@
         if (this.dialogEventListenerSet) return;
 
         let timer;
-        document.addEventListener("mousedown", function (event) {
+        document.addEventListener('mousedown', function (event) {
             // Check if the Ctrl key, Shift key, and middle mouse button were pressed
             if (event.ctrlKey && event.altKey && (event.button === 0 || event.button === 1)) {
                 showDialog(event);
@@ -65,7 +65,7 @@
             }
         });
 
-        document.addEventListener("mouseup", function (event) {
+        document.addEventListener('mouseup', function (event) {
             if (event.button === 1) {
                 clearTimeout(timer);
             }
@@ -83,8 +83,8 @@
 
         const getLinkElement = (el) => {
             do {
-                if (el.tagName != null && el.tagName.toLowerCase() === "a") {
-                    if (el.getAttribute("href") == "#") return null;
+                if (el.tagName != null && el.tagName.toLowerCase() === 'a') {
+                    if (el.getAttribute('href') == '#') return null;
                     return el;
                 }
             } while ((el = el.parentNode));
@@ -98,35 +98,31 @@
      */
     function createContextMenuOption() {
         chrome.contextMenus.create({
-            id: "dialog-tab-link",
-            title: "[Dialog Tab] Open Link",
-            contexts: ["link"],
+            id: 'dialog-tab-link',
+            title: '[Dialog Tab] Open Link',
+            contexts: ['link'],
         });
         chrome.contextMenus.create({
-            id: "search-dialog-tab",
+            id: 'search-dialog-tab',
             title: '[Dialog Tab] Search for "%s"',
-            contexts: ["selection"],
+            contexts: ['selection'],
         });
         chrome.contextMenus.create({
-            id: "select-search-dialog-tab",
-            title: "[Dialog Tab] Search with",
-            contexts: ["selection"],
+            id: 'select-search-dialog-tab',
+            title: '[Dialog Tab] Search with',
+            contexts: ['selection'],
         });
 
         chrome.contextMenus.onClicked.addListener(function (itemInfo) {
-            chrome.windows.getLastFocused(function (window) {
-                if (window.id === vivaldiWindowId && window.state !== "minimized") {
-                    if (itemInfo.menuItemId === "dialog-tab-link") {
-                        dialogTab(itemInfo.linkUrl);
-                    } else if (itemInfo.menuItemId === "search-dialog-tab") {
-                        let engineId = window.incognito ? privateSearchId : defaultSearchId;
-                        dialogTabSearch(engineId, itemInfo.selectionText);
-                    } else if (itemInfo.parentMenuItemId === "select-search-dialog-tab") {
-                        let engineId = itemInfo.menuItemId.substr(itemInfo.parentMenuItemId.length);
-                        dialogTabSearch(engineId, itemInfo.selectionText);
-                    }
-                }
-            });
+            if (itemInfo.menuItemId === 'dialog-tab-link') {
+                dialogTab(itemInfo.linkUrl);
+            } else if (itemInfo.menuItemId === 'search-dialog-tab') {
+                let engineId = window.incognito ? privateSearchId : defaultSearchId;
+                dialogTabSearch(engineId, itemInfo.selectionText);
+            } else if (itemInfo.parentMenuItemId === 'select-search-dialog-tab') {
+                let engineId = itemInfo.menuItemId.substr(itemInfo.parentMenuItemId.length);
+                dialogTabSearch(engineId, itemInfo.selectionText);
+            }
         });
     }
 
@@ -137,10 +133,10 @@
         searchEngineCollection.forEach(function (engine) {
             if (!createdContextMenuIds.includes(engine.id)) {
                 chrome.contextMenus.create({
-                    id: "select-search-dialog-tab" + engine.id,
-                    parentId: "select-search-dialog-tab",
+                    id: 'select-search-dialog-tab' + engine.id,
+                    parentId: 'select-search-dialog-tab',
                     title: engine.name,
-                    contexts: ["selection"],
+                    contexts: ['selection'],
                 });
                 createdContextMenuIds.push(engine.id);
             }
@@ -167,7 +163,7 @@
     function removeContextMenuSelectSearch() {
         searchEngineCollection.forEach(function (engine) {
             if (createdContextMenuIds.includes(engine.id)) {
-                chrome.contextMenus.remove("select-search-dialog-tab" + engine.id);
+                chrome.contextMenus.remove('select-search-dialog-tab' + engine.id);
                 createdContextMenuIds.splice(createdContextMenuIds.indexOf(engine.id), 1);
             }
         });
@@ -199,7 +195,7 @@
      */
     function keyCombo(id, combination) {
         const SHORTCUTS = {
-            "Ctrl+Alt+Period": () => {
+            'Ctrl+Alt+Period': () => {
                 // Open Default Search Engine in Dialog
                 chrome.tabs.query({active: true}).then((tabs) =>
                     vivaldi.utilities.getSelectedText(tabs[0].id, (text) =>
@@ -228,16 +224,28 @@
     }
 
     /**
-     * Opens a link in a dialog like display in the current visible tab
+     * Checks if the current window is the correct window to show the dialog and then opens the dialog
      * @param {string} linkUrl the url to load
      */
     function dialogTab(linkUrl) {
-        let divContainer = document.createElement("div"),
-            webview = document.createElement("webview"),
-            webviewId = "dialog-" + getWebviewId(),
-            divOptionContainer = document.createElement("div"),
-            progressBarContainer = document.createElement("div"),
-            progressBar = document.createElement("div");
+        chrome.windows.getLastFocused(function (window) {
+            if (window.id === vivaldiWindowId && window.state !== chrome.windows.WindowState.MINIMIZED) {
+                showDialog(linkUrl);
+            }
+        });
+    }
+
+    /**
+     * Opens a link in a dialog like display in the current visible tab
+     * @param {string} linkUrl the url to load
+     */
+    function showDialog(linkUrl) {
+        let divContainer = document.createElement('div'),
+            webview = document.createElement('webview'),
+            webviewId = 'dialog-' + getWebviewId(),
+            divOptionContainer = document.createElement('div'),
+            progressBarContainer = document.createElement('div'),
+            progressBar = document.createElement('div');
 
         webviews.set(webviewId, {
             divContainer: divContainer,
@@ -245,41 +253,41 @@
         });
 
         //#region webview properties
-        webview.setAttribute("src", linkUrl);
+        webview.setAttribute('src', linkUrl);
         webview.id = webviewId;
-        webview.style.width = 85 - 5 * webviews.size + "%";
-        webview.style.height = 90 - 5 * webviews.size + "%";
-        webview.style.margin = "auto";
-        webview.style.overflow = "hidden";
-        webview.style.borderRadius = "10px";
+        webview.style.width = 85 - 5 * webviews.size + '%';
+        webview.style.height = 90 - 5 * webviews.size + '%';
+        webview.style.margin = 'auto';
+        webview.style.overflow = 'hidden';
+        webview.style.borderRadius = '10px';
 
-        webview.addEventListener("loadstart", function () {
-            this.style.backgroundColor = "var(--colorBorder)";
-            document.getElementById("progressBar-" + webviewId).style.display = "block";
+        webview.addEventListener('loadstart', function () {
+            this.style.backgroundColor = 'var(--colorBorder)';
+            document.getElementById('progressBar-' + webviewId).style.display = 'block';
 
-            if (document.getElementById("input-" + this.id) !== null) {
-                document.getElementById("input-" + this.id).value = this.src;
+            if (document.getElementById('input-' + this.id) !== null) {
+                document.getElementById('input-' + this.id).value = this.src;
             }
         });
-        webview.addEventListener("loadstop", function () {
-            document.getElementById("progressBar-" + webviewId).style.display = "none";
+        webview.addEventListener('loadstop', function () {
+            document.getElementById('progressBar-' + webviewId).style.display = 'none';
         });
         //#endregion
 
         //#region divOptionContainer properties
-        divOptionContainer.style.position = "fixed";
-        divOptionContainer.style.width = "100%";
-        divOptionContainer.style.textAlign = "center";
-        divOptionContainer.style.alignItems = "center";
-        divOptionContainer.style.top = (100 - (90 - 5 * webviews.size)) / 2 - 4 + "%";
-        divOptionContainer.style.color = "white";
-        divOptionContainer.style.zIndex = "1160";
+        divOptionContainer.style.position = 'fixed';
+        divOptionContainer.style.width = '100%';
+        divOptionContainer.style.textAlign = 'center';
+        divOptionContainer.style.alignItems = 'center';
+        divOptionContainer.style.top = (100 - (90 - 5 * webviews.size)) / 2 - 4 + '%';
+        divOptionContainer.style.color = 'white';
+        divOptionContainer.style.zIndex = '1160';
         divOptionContainer.innerHTML = getEllipsisContent();
 
         let timeout;
-        divOptionContainer.addEventListener("mouseover", function () {
+        divOptionContainer.addEventListener('mouseover', function () {
             if (divOptionContainer.children.length === 1) {
-                divOptionContainer.innerHTML = "";
+                divOptionContainer.innerHTML = '';
                 showWebviewOptions(webviewId, divOptionContainer);
             }
             if (timeout) {
@@ -287,7 +295,7 @@
                 timeout = undefined;
             }
         });
-        divOptionContainer.addEventListener("mouseleave", function () {
+        divOptionContainer.addEventListener('mouseleave', function () {
             if (!timeout) {
                 timeout = setTimeout(() => {
                     while (divOptionContainer.firstChild) {
@@ -300,21 +308,21 @@
         //#endregion
 
         //#region divContainer properties
-        divContainer.setAttribute("class", "dialog-tab");
-        divContainer.style.zIndex = "1060";
-        divContainer.style.position = "fixed";
-        divContainer.style.top = "0";
-        divContainer.style.right = "0";
-        divContainer.style.bottom = "0";
-        divContainer.style.left = "0";
-        divContainer.style.backgroundColor = "rgba(0,0,0,.4)";
-        divContainer.style.transitionProperty = "background-color";
-        divContainer.style.transitionDuration = "0.1s";
-        divContainer.style.transitionTimingFunction = "ease";
-        divContainer.style.transitionDelay = "0s";
-        divContainer.style.backdropFilter = "blur(1px)";
+        divContainer.setAttribute('class', 'dialog-tab');
+        divContainer.style.zIndex = '1060';
+        divContainer.style.position = 'fixed';
+        divContainer.style.top = '0';
+        divContainer.style.right = '0';
+        divContainer.style.bottom = '0';
+        divContainer.style.left = '0';
+        divContainer.style.backgroundColor = 'rgba(0,0,0,.4)';
+        divContainer.style.transitionProperty = 'background-color';
+        divContainer.style.transitionDuration = '0.1s';
+        divContainer.style.transitionTimingFunction = 'ease';
+        divContainer.style.transitionDelay = '0s';
+        divContainer.style.backdropFilter = 'blur(1px)';
 
-        divContainer.addEventListener("click", function (event) {
+        divContainer.addEventListener('click', function (event) {
             if (event.target === this) {
                 removeDialog(webviewId);
             }
@@ -322,14 +330,14 @@
         //#endregion
 
         //#region progressBarContainer properties
-        progressBarContainer.style.width = "77%";
-        progressBarContainer.style.margin = "1.3rem auto auto";
+        progressBarContainer.style.width = '77%';
+        progressBarContainer.style.margin = '1.3rem auto auto';
 
-        progressBar.id = "progressBar-" + webviewId;
-        progressBar.style.height = "5px";
-        progressBar.style.width = "10%";
-        progressBar.style.backgroundColor = "#0080ff";
-        progressBar.style.borderRadius = "5px";
+        progressBar.id = 'progressBar-' + webviewId;
+        progressBar.style.height = '5px';
+        progressBar.style.width = '10%';
+        progressBar.style.backgroundColor = '#0080ff';
+        progressBar.style.borderRadius = '5px';
         //#endregion
 
         progressBarContainer.appendChild(progressBar);
@@ -339,7 +347,7 @@
 
         // Get for current tab and append divContainer
         document
-            .getElementsByClassName("active visible webpageview")[0]
+            .getElementsByClassName('active visible webpageview')[0]
             .appendChild(divContainer);
     }
 
@@ -349,13 +357,13 @@
      * @param {Object} thisElement the current instance divOptionContainer (div) element
      */
     function showWebviewOptions(webviewId, thisElement) {
-        let inputId = "input-" + webviewId,
+        let inputId = 'input-' + webviewId,
             data = webviews.get(webviewId),
             webview = data ? data.webview : undefined;
         console.log(document.getElementById(inputId) === null, webviewId);
         if (webview && document.getElementById(inputId) === null) {
             let webviewSrc = webview.src,
-                input = document.createElement("input", "text"),
+                input = document.createElement('input', 'text'),
                 buttonBack = createOptionsButton(),
                 buttonForward = createOptionsButton(),
                 buttonNewTab = createOptionsButton(),
@@ -363,37 +371,37 @@
 
             input.value = webviewSrc;
             input.id = inputId;
-            input.setAttribute("readonly", "");
-            input.style.background = "var(--colorAccentBgAlpha)" // "transparent";
-            input.style.color = "white";
-            input.style.border = "unset";
-            input.style.width = "20%";
-            input.style.margin = "0 0.5rem 0 0.5rem";
-            input.style.padding = "0.25rem 0.5rem";
+            input.setAttribute('readonly', '');
+            input.style.background = 'var(--colorAccentBgAlpha)' // 'transparent';
+            input.style.color = 'white';
+            input.style.border = 'unset';
+            input.style.width = '20%';
+            input.style.margin = '0 0.5rem 0 0.5rem';
+            input.style.padding = '0.25rem 0.5rem';
 
             setBackButtonContent(buttonBack);
-            buttonBack.addEventListener("click", function (event) {
+            buttonBack.addEventListener('click', function (event) {
                 if (event.target === this || this.firstChild) {
                     webview.back();
                 }
             });
 
             setForwardButtonContent(buttonForward);
-            buttonForward.addEventListener("click", function (event) {
+            buttonForward.addEventListener('click', function (event) {
                 if (event.target === this || this.firstChild) {
                     webview.forward();
                 }
             });
 
             buttonNewTab.innerHTML = getNewTabContent();
-            buttonNewTab.addEventListener("click", function (event) {
+            buttonNewTab.addEventListener('click', function (event) {
                 if (event.target === this || this.firstChild) {
                     openNewTab(inputId, true);
                 }
             });
 
             buttonBackgroundTab.innerHTML = getBackgroundTabContent();
-            buttonBackgroundTab.addEventListener("click", function (event) {
+            buttonBackgroundTab.addEventListener('click', function (event) {
                 if (event.target === this || this.firstChild) {
                     openNewTab(inputId, false);
                 }
@@ -413,11 +421,11 @@
      * Create a button with default style for the web view options.
      */
     function createOptionsButton() {
-        let button = document.createElement("button");
+        let button = document.createElement('button');
 
-        button.style.background = "transparent";
-        button.style.margin = "0 0.5rem 0 0.5rem";
-        button.style.border = "unset";
+        button.style.background = 'transparent';
+        button.style.margin = '0 0.5rem 0 0.5rem';
+        button.style.border = 'unset';
 
         return button;
     }
@@ -428,7 +436,7 @@
     function getWebviewId() {
         let tempId = 0;
         while (true) {
-            if (document.getElementById("dialog-" + tempId) === null) {
+            if (document.getElementById('dialog-' + tempId) === null) {
                 break;
             }
             tempId = Math.floor(Math.random() * 1000 + 1);
