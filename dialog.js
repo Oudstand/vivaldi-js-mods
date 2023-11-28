@@ -38,9 +38,7 @@
             chrome.tabs.onUpdated.addListener((tabId, data) => {
                 if (data.status === chrome.tabs.TabStatus.COMPLETE) {
                     chrome.scripting.executeScript({
-                        target: {
-                            tabId: tabId,
-                        },
+                        target: {tabId: tabId},
                         func: setUrlClickObserver,
                         args: [tabId],
                     });
@@ -60,18 +58,10 @@
         let timer;
         document.addEventListener("mousedown", function (event) {
             // Check if the Ctrl key, Shift key, and middle mouse button were pressed
-            if (
-                event.ctrlKey &&
-                event.altKey &&
-                (event.button === 0 || event.button === 1)
-            ) {
+            if (event.ctrlKey && event.altKey && (event.button === 0 || event.button === 1)) {
                 showDialog(event);
-            }
-
-            if (event.button === 1) {
-                timer = setTimeout(() => {
-                    showDialog(event);
-                }, 500);
+            } else if (event.button === 1) {
+                timer = setTimeout(() => showDialog(event), 500);
             }
         });
 
@@ -87,9 +77,7 @@
             let link = getLinkElement(event.target);
             if (link) {
                 event.preventDefault();
-                chrome.runtime.sendMessage({
-                    url: link.href,
-                });
+                chrome.runtime.sendMessage({url: link.href});
             }
         };
 
@@ -131,12 +119,10 @@
                     if (itemInfo.menuItemId === "dialog-tab-link") {
                         dialogTab(itemInfo.linkUrl);
                     } else if (itemInfo.menuItemId === "search-dialog-tab") {
-                        var engineId = window.incognito ? privateSearchId : defaultSearchId;
+                        let engineId = window.incognito ? privateSearchId : defaultSearchId;
                         dialogTabSearch(engineId, itemInfo.selectionText);
                     } else if (itemInfo.parentMenuItemId === "select-search-dialog-tab") {
-                        var engineId = itemInfo.menuItemId.substr(
-                            itemInfo.parentMenuItemId.length
-                        );
+                        let engineId = itemInfo.menuItemId.substr(itemInfo.parentMenuItemId.length);
                         dialogTabSearch(engineId, itemInfo.selectionText);
                     }
                 }
@@ -215,15 +201,11 @@
         const SHORTCUTS = {
             "Ctrl+Alt+Period": () => {
                 // Open Default Search Engine in Dialog
-                chrome.tabs
-                    .query({
-                        active: true,
-                    })
-                    .then((tabs) =>
-                        vivaldi.utilities.getSelectedText(tabs[0].id, (text) =>
-                            dialogTabSearch(defaultSearchId, text)
-                        )
-                    );
+                chrome.tabs.query({active: true}).then((tabs) =>
+                    vivaldi.utilities.getSelectedText(tabs[0].id, (text) =>
+                        dialogTabSearch(defaultSearchId, text)
+                    )
+                );
             },
             Esc: () => removeDialog(webviews.keys().toArray().pop()),
         };
@@ -273,16 +255,14 @@
 
         webview.addEventListener("loadstart", function () {
             this.style.backgroundColor = "var(--colorBorder)";
-            document.getElementById("progressBar-" + webviewId).style.display =
-                "block";
+            document.getElementById("progressBar-" + webviewId).style.display = "block";
 
             if (document.getElementById("input-" + this.id) !== null) {
                 document.getElementById("input-" + this.id).value = this.src;
             }
         });
         webview.addEventListener("loadstop", function () {
-            document.getElementById("progressBar-" + webviewId).style.display =
-                "none";
+            document.getElementById("progressBar-" + webviewId).style.display = "none";
         });
         //#endregion
 
@@ -405,14 +385,14 @@
                 }
             });
 
-            buttonNewTab.innerHTML = getNewtabContent();
+            buttonNewTab.innerHTML = getNewTabContent();
             buttonNewTab.addEventListener("click", function (event) {
                 if (event.target === this || this.firstChild) {
                     openNewTab(inputId, true);
                 }
             });
 
-            buttonBackgroundTab.innerHTML = getBacktabContent();
+            buttonBackgroundTab.innerHTML = getBackgroundTabContent();
             buttonBackgroundTab.addEventListener("click", function (event) {
                 if (event.target === this || this.firstChild) {
                     openNewTab(inputId, false);
@@ -433,7 +413,7 @@
      * Create a button with default style for the web view options.
      */
     function createOptionsButton() {
-        var button = document.createElement("button");
+        let button = document.createElement("button");
 
         button.style.background = "transparent";
         button.style.margin = "0 0.5rem 0 0.5rem";
@@ -446,7 +426,7 @@
      * Returns a random, verified id.
      */
     function getWebviewId() {
-        var tempId = 0;
+        let tempId = 0;
         while (true) {
             if (document.getElementById("dialog-" + tempId) === null) {
                 break;
@@ -457,17 +437,14 @@
     }
 
     /**
-     * Opens a new chrome tab with specified active boolean value
+     * Opens a new Chrome tab with specified active boolean value
      * @param {string} inputId is the id of the input containing current url
      * @param {boolean} active indicates whether the tab is active or not (background tab)
      */
     function openNewTab(inputId, active) {
-        var url = document.getElementById(inputId).value;
+        let url = document.getElementById(inputId).value;
 
-        chrome.tabs.create({
-            url: url,
-            active: active,
-        });
+        chrome.tabs.create({url: url, active: active})
     }
 
     /**
@@ -504,14 +481,14 @@
     /**
      *  Returns string of external link alt svg icon
      */
-    function getNewtabContent() {
+    function getNewTabContent() {
         return '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 512 512"><path d="M320 0c-17.7 0-32 14.3-32 32s14.3 32 32 32h82.7L201.4 265.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L448 109.3V192c0 17.7 14.3 32 32 32s32-14.3 32-32V32c0-17.7-14.3-32-32-32H320zM80 32C35.8 32 0 67.8 0 112V432c0 44.2 35.8 80 80 80H400c44.2 0 80-35.8 80-80V320c0-17.7-14.3-32-32-32s-32 14.3-32 32V432c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V112c0-8.8 7.2-16 16-16H192c17.7 0 32-14.3 32-32s-14.3-32-32-32H80z"/></svg>';
     }
 
     /**
      * Returns string of external link square alt svg icon
      */
-    function getBacktabContent() {
+    function getBackgroundTabContent() {
         return '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M384 32c35.3 0 64 28.7 64 64V416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96C0 60.7 28.7 32 64 32H384zM160 144c-13.3 0-24 10.7-24 24s10.7 24 24 24h94.1L119 327c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l135-135V328c0 13.3 10.7 24 24 24s24-10.7 24-24V168c0-13.3-10.7-24-24-24H160z"/></svg>';
     }
 })();
