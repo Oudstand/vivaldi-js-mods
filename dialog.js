@@ -9,7 +9,8 @@
         defaultSearchId,
         privateSearchId,
         createdContextMenuIds = [],
-        webviews = new Map();
+        webviews = new Map(),
+        fromPanel;
 
     // Wait for the browser to come to a ready state
     setTimeout(function waitDialog() {
@@ -32,18 +33,37 @@
 
             chrome.runtime.onMessage.addListener((message) => {
                 if (message.url) {
-                    dialogTab(message.url);
+                    fromPanel = message.fromPanel;
+                    dialogTab(message.url, message.fromPanel);
                 }
             });
-            chrome.tabs.onUpdated.addListener((tabId, data) => {
-                if (data.status === chrome.tabs.TabStatus.COMPLETE) {
+
+            // chrome.tabs.onUpdated.addListener((tabId, data) => {
+            //     if (data.status === chrome.tabs.TabStatus.COMPLETE) {
+            //         chrome.scripting.executeScript({
+            //             target: {tabId: tabId},
+            //             func: setUrlClickObserver
+            //         });
+            //     }
+            // });
+
+            chrome.webNavigation.onCompleted.addListener((details) => {
+                if (details.tabId < 0) {
+                    let view = Array.from(webviews.values()).pop();
+                    if (view) {
+                        view.webview.executeScript({code: `(${setUrlClickObserver})(${fromPanel})`});
+                    } else {
+                        document.querySelector('.webpanel-stack > .visible webview')
+                            .executeScript({code: `(${setUrlClickObserver})(${true})`});
+                    }
+                } else {
                     chrome.scripting.executeScript({
-                        target: {tabId: tabId},
-                        func: setUrlClickObserver,
-                        args: [tabId],
+                        target: {tabId: details.tabId},
+                        func: setUrlClickObserver
                     });
                 }
             });
+
         } else {
             setTimeout(waitDialog, 300);
         }
@@ -52,16 +72,16 @@
     /**
      * Checks if a link is clicked by middle mouse while pressing Ctrl + Alt, then fires an event with the Url
      */
-    function setUrlClickObserver() {
+    function setUrlClickObserver(fromPanel = false) {
         if (this.dialogEventListenerSet) return;
 
         let timer;
         document.addEventListener('mousedown', function (event) {
             // Check if the Ctrl key, Shift key, and middle mouse button were pressed
             if (event.ctrlKey && event.altKey && (event.button === 0 || event.button === 1)) {
-                showDialog(event);
+                callDialog(event);
             } else if (event.button === 1) {
-                timer = setTimeout(() => showDialog(event), 500);
+                timer = setTimeout(() => callDialog(event), 500);
             }
         });
 
@@ -73,18 +93,18 @@
 
         this.dialogEventListenerSet = true;
 
-        const showDialog = (event) => {
+        let callDialog = (event) => {
             let link = getLinkElement(event.target);
             if (link) {
                 event.preventDefault();
-                chrome.runtime.sendMessage({url: link.href});
+                chrome.runtime.sendMessage({url: link.href, fromPanel: fromPanel});
             }
         };
 
-        const getLinkElement = (el) => {
+        let getLinkElement = (el) => {
             do {
                 if (el.tagName != null && el.tagName.toLowerCase() === 'a') {
-                    if (el.getAttribute('href') == '#') return null;
+                    if (el.getAttribute('href') === '#') return null;
                     return el;
                 }
             } while ((el = el.parentNode));
@@ -195,12 +215,11 @@
      */
     function keyCombo(id, combination) {
         const SHORTCUTS = {
-            'Ctrl+Alt+Period': () => {
+            'Ctrl+Alt+Period': async () => {
                 // Open Default Search Engine in Dialog
-                chrome.tabs.query({active: true}).then((tabs) =>
-                    vivaldi.utilities.getSelectedText(tabs[0].id, (text) =>
-                        dialogTabSearch(defaultSearchId, text)
-                    )
+                let tabs = await chrome.tabs.query({active: true})
+                vivaldi.utilities.getSelectedText(tabs[0].id, (text) =>
+                    dialogTabSearch(defaultSearchId, text)
                 );
             },
             'Esc': () => removeDialog(Array.from(webviews.keys()).pop())
@@ -226,11 +245,12 @@
     /**
      * Checks if the current window is the correct window to show the dialog and then opens the dialog
      * @param {string} linkUrl the url to load
+     * @param {boolean} fromPanel indicates whether the dialog is opened from a panel
      */
-    function dialogTab(linkUrl) {
+    function dialogTab(linkUrl, fromPanel = false) {
         chrome.windows.getLastFocused(function (window) {
             if (window.id === vivaldiWindowId && window.state !== chrome.windows.WindowState.MINIMIZED) {
-                showDialog(linkUrl);
+                showDialog(linkUrl, fromPanel);
             }
         });
     }
@@ -238,8 +258,9 @@
     /**
      * Opens a link in a dialog like display in the current visible tab
      * @param {string} linkUrl the url to load
+     * @param {boolean} fromPanel indicates whether the dialog is opened from a panel
      */
-    function showDialog(linkUrl) {
+    function showDialog(linkUrl, fromPanel = false) {
         let divContainer = document.createElement('div'),
             webview = document.createElement('webview'),
             webviewId = 'dialog-' + getWebviewId(),
@@ -322,11 +343,20 @@
         divContainer.style.transitionDelay = '0s';
         divContainer.style.backdropFilter = 'blur(1px)';
 
+        let stopEvent = event => {
+            event.preventDefault();
+            event.stopPropagation();
+        };
+
+        fromPanel && document.body.addEventListener('pointerdown', stopEvent);
+
         divContainer.addEventListener('click', function (event) {
             if (event.target === this) {
+                fromPanel && document.body.removeEventListener('pointerdown', stopEvent);
                 removeDialog(webviewId);
             }
         });
+
         //#endregion
 
         //#region progressBarContainer properties
@@ -346,9 +376,7 @@
         divContainer.appendChild(progressBarContainer);
 
         // Get for current tab and append divContainer
-        document
-            .getElementsByClassName('active visible webpageview')[0]
-            .appendChild(divContainer);
+        fromPanel ? document.body.appendChild(divContainer) : document.querySelector('.active.visible.webpageview').appendChild(divContainer);
     }
 
     /**
