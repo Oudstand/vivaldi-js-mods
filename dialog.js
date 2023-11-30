@@ -293,6 +293,7 @@
         webview.addEventListener('loadstop', function () {
             document.getElementById('progressBar-' + webviewId).style.display = 'none';
         });
+        fromPanel && webview.addEventListener('mousedown', event => event.stopPropagation());
         //#endregion
 
         //#region divOptionContainer properties
