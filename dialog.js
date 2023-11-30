@@ -203,7 +203,7 @@
                     )
                 );
             },
-            Esc: () => removeDialog(webviews.keys().toArray().pop()),
+            'Esc': () => removeDialog(Array.from(webviews.keys()).pop())
         };
 
         const customShortcut = SHORTCUTS[combination];
