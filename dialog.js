@@ -214,14 +214,17 @@
      * @param {String} combination written in the form (CTRL+SHIFT+ALT+KEY)
      */
     function keyCombo(id, combination) {
+        /** Open Default Search Engine in Dialog and search for selected text */
+        const searchForSelectedText = async () => {
+            let tabs = await chrome.tabs.query({active: true})
+            vivaldi.utilities.getSelectedText(tabs[0].id, (text) =>
+                dialogTabSearch(defaultSearchId, text)
+            );
+        }
+
         const SHORTCUTS = {
-            'Ctrl+Alt+Period': async () => {
-                // Open Default Search Engine in Dialog
-                let tabs = await chrome.tabs.query({active: true})
-                vivaldi.utilities.getSelectedText(tabs[0].id, (text) =>
-                    dialogTabSearch(defaultSearchId, text)
-                );
-            },
+            'Ctrl+Alt+Period': searchForSelectedText,
+            'Ctrl+Shift+F': searchForSelectedText,
             'Esc': () => removeDialog(Array.from(webviews.keys()).pop())
         };
 
