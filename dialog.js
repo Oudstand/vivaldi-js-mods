@@ -53,8 +53,8 @@
                     if (view) {
                         view.webview.executeScript({code: `(${setUrlClickObserver})(${fromPanel})`});
                     } else {
-                        document.querySelector('.webpanel-stack > .visible webview')
-                            .executeScript({code: `(${setUrlClickObserver})(${true})`});
+                        view = document.querySelector('.webpanel-stack > .visible webview');
+                        view && view.executeScript({code: `(${setUrlClickObserver})(${true})`});
                     }
                 } else {
                     chrome.scripting.executeScript({
