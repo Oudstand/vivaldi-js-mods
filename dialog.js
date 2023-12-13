@@ -250,7 +250,7 @@
      * @param {string} linkUrl the url to load
      * @param {boolean} fromPanel indicates whether the dialog is opened from a panel
      */
-    function dialogTab(linkUrl, fromPanel = false) {
+    function dialogTab(linkUrl, fromPanel = undefined) {
         chrome.windows.getLastFocused(function (window) {
             if (window.id === vivaldiWindowId && window.state !== chrome.windows.WindowState.MINIMIZED) {
                 showDialog(linkUrl, fromPanel);
@@ -263,7 +263,7 @@
      * @param {string} linkUrl the url to load
      * @param {boolean} fromPanel indicates whether the dialog is opened from a panel
      */
-    function showDialog(linkUrl, fromPanel = false) {
+    function showDialog(linkUrl, fromPanel) {
         let divContainer = document.createElement('div'),
             webview = document.createElement('webview'),
             webviewId = 'dialog-' + getWebviewId(),
@@ -271,9 +271,14 @@
             progressBarContainer = document.createElement('div'),
             progressBar = document.createElement('div');
 
+        if (fromPanel === undefined && webviews.size !== 0) {
+            fromPanel = Array.from(webviews.values()).pop().fromPanel;
+        }
+        
         webviews.set(webviewId, {
             divContainer: divContainer,
             webview: webview,
+            fromPanel: fromPanel
         });
 
         //#region webview properties
