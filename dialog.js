@@ -194,8 +194,9 @@
      * @param {String} engineId engine id of the engine to be used
      * @param {int} selectionText the text to search
      */
-    function dialogTabSearch(engineId, selectionText) {
-        dialogTab(getEngine(engineId).url.replace(/%s/g, selectionText));
+    async function dialogTabSearch(engineId, selectionText) {
+        let searchRequest = await vivaldi.searchEngines.getSearchRequest(engineId, selectionText);
+        dialogTab(searchRequest.url);
     }
 
     /**
