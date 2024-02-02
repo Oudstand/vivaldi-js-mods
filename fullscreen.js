@@ -84,6 +84,7 @@
     }
 
     function adjustStyles(element, shouldAdjustStyles, offset) {
+        if (!element) return;
         element.style.marginTop = shouldAdjustStyles && offset ? `${offset}px` : "";
         element.style.marginBottom = shouldAdjustStyles ? `-${offset + element.offsetHeight}px` : "";
         element.style.zIndex = shouldAdjustStyles ? 9 : "";
