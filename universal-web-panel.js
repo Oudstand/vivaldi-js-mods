@@ -12,6 +12,9 @@
   const USE_DEFAULT_ICON = true;
   const FAVORITES = [{caption: "YouTube", url: "https://www.youtube.com"}, {caption: "Google", url: "https://www.google.com"}];
 
+  const TOOLBAR_HEIGHT = "28px";
+  const INPUT_BORDER_RADIUS = "10px";
+
   class UWP {
     #panelStackChangeObserver;
     #panelChangeObserver;
@@ -31,10 +34,10 @@
 
     #registerVisible() {
       if (!this.#input) {
-        this.#createInputToolbarAndInput();
+        this.createUwpToolbar();
         this.#addInputEvents();
-        FAVORITES && FAVORITES.length && this.#addComboboxEvents();
         this.#addWebviewEvents();
+        this.#addFavoritesSelectEvents();
       }
       this.#focusInput();
       if (this.#isBlank) {
@@ -46,7 +49,8 @@
     }
 
     #registerInvisible() {
-      this.#buttonImg = this.#isBlank || USE_DEFAULT_ICON ? DEFAULT_ICON : this.#webview.src;
+      this.#buttonImg =
+        this.#isBlank || USE_DEFAULT_ICON ? DEFAULT_ICON : this.#webview.src;
     }
 
     // listeners
@@ -71,11 +75,18 @@
     }
 
     #addInputEvents() {
-      this.#input.addEventListener("input", () => this.#handleInput(this.#input.value.trim()));
+      this.#input.addEventListener("input", () =>
+        this.#handleInput(this.#input.value.trim()),
+      );
     }
 
-    #addComboboxEvents() {
-      this.#combobox.addEventListener("input", () => this.#handleInput(this.#combobox.value.trim()));
+    #addFavoritesSelectEvents() {
+      if (this.#isfavoritesEnabled) {
+        this.#favoritesSelect.addEventListener("input", () => {
+          this.#handleInput(this.#favoritesSelect.value.trim());
+          this.#resetFavoritesSelect();
+        });
+      }
     }
 
     #addWebviewEvents() {
@@ -94,67 +105,74 @@
 
     // builders
 
-    #createInputToolbarAndInput() {
+    createUwpToolbar() {
+      const uwpToolbar = this.#createEmptyUwpToolbar();
       const input = this.#createInput();
-      const inputToolbar = this.#createInputToolbar();
-      inputToolbar.appendChild(input);
+      uwpToolbar.appendChild(input);
 
-      if(FAVORITES && FAVORITES.length) {
-        const combobox = this.#createCombobox();
-        inputToolbar.appendChild(combobox);
+      if (this.#isfavoritesEnabled) {
+        const favoritesSelect = this.#createFavoritesSelect();
+        uwpToolbar.appendChild(favoritesSelect);
       }
 
-      this.#panel.appendChild(inputToolbar);
+      this.#panel.appendChild(uwpToolbar);
     }
 
-    #createInputToolbar() {
-      const inputToolbar = document.createElement("div");
-      inputToolbar.className =
-        "panel-universal-input toolbar-default full-width";
-      inputToolbar.width = "100%";
-      inputToolbar.style.height = "24px";
-      inputToolbar.style.width = "100%";
-      inputToolbar.style.height = "28px";
-      inputToolbar.style.padding = "0 2px";
-      inputToolbar.style.marginTop = "2px";
-      inputToolbar.style.display = "flex";
-      inputToolbar.style.gap = "10px";
-      return inputToolbar;
+    #createEmptyUwpToolbar() {
+      const uwpToolbar = document.createElement("div");
+      uwpToolbar.className = "uwp-toolbar toolbar-default full-width";
+      uwpToolbar.width = "100%";
+      uwpToolbar.style.height = TOOLBAR_HEIGHT;
+      uwpToolbar.style.width = "100%";
+      uwpToolbar.style.marginTop = "2px";
+      uwpToolbar.style.display = "flex";
+      uwpToolbar.style.gap = "2px";
+      return uwpToolbar;
     }
 
     #createInput() {
       const input = document.createElement("input");
-      input.className = "universal-input";
+      input.className = "uwp-input";
       input.type = "text";
       input.placeholder = "Paste your link, html or javascript";
       input.style.flex = 3;
-      input.style.height = "28px";
+      input.style.height = TOOLBAR_HEIGHT;
       input.style.padding = "10px";
+      input.style.borderRadius = INPUT_BORDER_RADIUS;
+      input.style.outline = 'none';
+      input.style.borderWidth = '0px';
       return input;
     }
 
-    #createCombobox() {
-      const comboboxDropdown = document.createElement('select');
-      comboboxDropdown.id = "combobox-dropdown";
-      comboboxDropdown.className = "universal-combobox";
-      comboboxDropdown.style.flex = 1;
-    
+    #createFavoritesSelect() {
+      const favoritesSelect = document.createElement("select");
+      favoritesSelect.className = "uwp-favorites-select";
+      favoritesSelect.style.width = "25px";
+      favoritesSelect.style.padding = "5px";
+      favoritesSelect.style.backgroundColor = "transparent";
+      favoritesSelect.style.backgroundImage = "none";
+      favoritesSelect.style.borderWidth = "0px";
+      favoritesSelect.style.outline = "none";
+
       // Create a default option
-      const defaultOption = document.createElement('option');
-      defaultOption.textContent = "Favorites";
+      const defaultOption = document.createElement("option");
+      defaultOption.textContent = "🤍";
       defaultOption.selected = true;
       defaultOption.disabled = true;
-      comboboxDropdown.appendChild(defaultOption);
-    
-      FAVORITES.forEach(favorite => {
-        const option = document.createElement('option');
+      defaultOption.style.backgroundColor = "var(--colorBg)";
+      defaultOption.setAttribute("value", 0);
+      favoritesSelect.appendChild(defaultOption);
+
+      FAVORITES.forEach((favorite) => {
+        const option = document.createElement("option");
         option.value = favorite.url;
         option.textContent = favorite.caption;
-        comboboxDropdown.appendChild(option);
+        option.style.backgroundColor = "var(--colorBg)";
+        favoritesSelect.appendChild(option);
       });
-      
-      return comboboxDropdown;
-    }   
+
+      return favoritesSelect;
+    }
 
     #createHtmlview() {
       const htmlview = document.createElement("div");
@@ -171,8 +189,8 @@
     }
 
     get #panel() {
-      return document.querySelector(`webview[tab_id^="${PANEL_ID}"], webview[vivaldi_view_type^="${PANEL_ID}`)
-        ?.parentElement?.parentElement;
+      const selector = `webview[tab_id^="${PANEL_ID}"], webview[vivaldi_view_type^="${PANEL_ID}"`;
+      return document.querySelector(selector)?.parentElement?.parentElement;
     }
 
     get #button() {
@@ -196,11 +214,11 @@
     }
 
     get #input() {
-      return this.#panel.querySelector(".universal-input");
+      return this.#panel.querySelector(".uwp-input");
     }
 
-    get #combobox() {
-      return this.#panel.querySelector(".universal-combobox");
+    get #favoritesSelect() {
+      return this.#panel.querySelector(".uwp-favorites-select");
     }
 
     get #buttonImg() {
@@ -213,6 +231,10 @@
 
     get #isBlank() {
       return this.#webview.src === "about:blank";
+    }
+
+    get #isfavoritesEnabled() {
+      return FAVORITES && FAVORITES.length;
     }
 
     // setters
@@ -302,6 +324,10 @@
 
     #focusInput() {
       setTimeout(() => this.#input.focus(), 100);
+    }
+
+    #resetFavoritesSelect() {
+      this.#favoritesSelect.value = 0;
     }
   }
 
