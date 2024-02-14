@@ -38,30 +38,22 @@
                 }
             });
 
-            // chrome.tabs.onUpdated.addListener((tabId, data) => {
-            //     if (data.status === chrome.tabs.TabStatus.COMPLETE) {
-            //         chrome.scripting.executeScript({
-            //             target: {tabId: tabId},
-            //             func: setUrlClickObserver
-            //         });
-            //     }
-            // });
-
             chrome.webNavigation.onCompleted.addListener((details) => {
+                let fromPanel = false,
+                    webview;
+
                 if (details.tabId < 0) {
                     let view = Array.from(webviews.values()).pop();
-                    if (view) {
-                        view.webview.executeScript({code: `(${setUrlClickObserver})(${fromPanel})`});
-                    } else {
-                        view = document.querySelector('.webpanel-stack > .visible webview');
-                        view && view.executeScript({code: `(${setUrlClickObserver})(${true})`});
-                    }
+                    webview = view?.webview;
+                    fromPanel = view?.fromPanel;
+                } else if (document.activeElement instanceof WebView) {
+                    webview = document.activeElement;
                 } else {
-                    chrome.scripting.executeScript({
-                        target: {tabId: details.tabId},
-                        func: setUrlClickObserver
-                    });
+                    webview = document.querySelector('.webpanel-stack > .visible webview');
+                    fromPanel = true;
                 }
+
+                webview?.executeScript({code: `(${setUrlClickObserver})(${fromPanel})`});
             });
 
         } else {
@@ -275,7 +267,7 @@
         if (fromPanel === undefined && webviews.size !== 0) {
             fromPanel = Array.from(webviews.values()).pop().fromPanel;
         }
-        
+
         webviews.set(webviewId, {
             divContainer: divContainer,
             webview: webview,
