@@ -8,9 +8,13 @@
   const PANEL_ID = "WEBPANEL_7386ba5c-36af-495f-a850-8a7acbb242ac";
 
   const DEFAULT_TITLE = "Universal Web Panel";
-  const DEFAULT_ICON = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23cdc8c0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='feather feather-search'><circle cx='11' cy='11' r='8'></circle><line x1='21' y1='21' x2='16.65' y2='16.65'></line></svg>";
+  const DEFAULT_ICON =
+    "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23cdc8c0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='feather feather-search'><circle cx='11' cy='11' r='8'></circle><line x1='21' y1='21' x2='16.65' y2='16.65'></line></svg>";
   const USE_DEFAULT_ICON = true;
-  const FAVORITES = [{caption: "YouTube", url: "https://www.youtube.com"}, {caption: "Google", url: "https://www.google.com"}];
+  const FAVORITES = [
+    { caption: "YouTube", url: "https://www.youtube.com" },
+    { caption: "Google", url: "https://www.google.com" },
+  ];
 
   const TOOLBAR_HEIGHT = "28px";
   const INPUT_BORDER_RADIUS = "10px";
@@ -25,6 +29,9 @@
         this.#register();
       } else {
         this.#panelStackChangeObserver = this.#createPanelStackChangeObserver();
+        if (USE_DEFAULT_ICON) {
+          this.#buttonImg = DEFAULT_ICON;
+        }
       }
     }
 
@@ -76,7 +83,7 @@
 
     #addInputEvents() {
       this.#input.addEventListener("input", () =>
-        this.#handleInput(this.#input.value.trim()),
+        this.#handleInput(this.#input.value.trim())
       );
     }
 
@@ -139,16 +146,16 @@
       input.style.height = TOOLBAR_HEIGHT;
       input.style.padding = "10px";
       input.style.borderRadius = INPUT_BORDER_RADIUS;
-      input.style.outline = 'none';
-      input.style.borderWidth = '0px';
+      input.style.outline = "none";
+      input.style.borderWidth = "0px";
       return input;
     }
 
     #createFavoritesSelect() {
       const favoritesSelect = document.createElement("select");
       favoritesSelect.className = "uwp-favorites-select";
-      favoritesSelect.style.width = "25px";
-      favoritesSelect.style.padding = "5px";
+      favoritesSelect.style.width = "30px";
+      favoritesSelect.style.padding = "0";
       favoritesSelect.style.backgroundColor = "transparent";
       favoritesSelect.style.backgroundImage = "none";
       favoritesSelect.style.borderWidth = "0px";
