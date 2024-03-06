@@ -390,7 +390,6 @@
         let inputId = 'input-' + webviewId,
             data = webviews.get(webviewId),
             webview = data ? data.webview : undefined;
-        console.log(document.getElementById(inputId) === null, webviewId);
         if (webview && document.getElementById(inputId) === null) {
             let webviewSrc = webview.src,
                 input = document.createElement('input', 'text'),
@@ -401,13 +400,29 @@
 
             input.value = webviewSrc;
             input.id = inputId;
-            input.setAttribute('readonly', '');
             input.style.background = 'var(--colorAccentBgAlpha)' // 'transparent';
             input.style.color = 'white';
             input.style.border = 'unset';
             input.style.width = '20%';
             input.style.margin = '0 0.5rem 0 0.5rem';
             input.style.padding = '0.25rem 0.5rem';
+            input.addEventListener("keydown", function (event) {
+              if (event.key === "Enter") {
+                let value = input.value;
+                if (value.startsWith("http://") ||
+                  value.startsWith("https://") ||
+                  value.startsWith("file://") ||
+                  value.startsWith("vivaldi://") ||
+                  value === "about:blank"
+                ) {
+                  webview.src = value;
+                } else {
+                    vivaldi.searchEngines.getSearchRequest(defaultSearchId, value).then(function (searchRequest) {
+                        webview.src = searchRequest.url;
+                    });
+                }
+              }
+            });
 
             setBackButtonContent(buttonBack);
             buttonBack.addEventListener('click', function (event) {
