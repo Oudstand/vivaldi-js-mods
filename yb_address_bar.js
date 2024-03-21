@@ -27,13 +27,39 @@
             height: 20px !important;
             margin-left: 4px;
             border: none;
-            line-height: 0;
             display: flex;
             align-items: center;
         }
 
         .YBDomainButton:hover {
             background-color: var(--colorAccentBgAlpha);
+        }
+
+        .YBDomain {
+            height: 100%;
+            max-width: 10rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .YBDomain::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            padding: 0.25px 6px;
+            background-color: var(--colorAccentBg);
+            color: var(--colorAccentFg);
+            border-radius: var(--radius);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s;
+            z-index: 2;
+            transform: translateX(calc(-100% + 6px));
+        }
+
+        .YBDomain:hover::after {
+          opacity: 1;
+          visibility: visible;
         }
 
         .YBTitle {
@@ -123,6 +149,7 @@
             const ybDomain = document.createElement('div');
             ybDomain.className = 'UrlFragment--Lowlight YBDomain';
             ybDomain.innerText = domain;
+            ybDomain.setAttribute('data-tooltip', domain);
             return ybDomain;
         }
 
