@@ -46,11 +46,10 @@
                     let view = Array.from(webviews.values()).pop();
                     webview = view?.webview;
                     fromPanel = view?.fromPanel;
-                } else if (document.activeElement instanceof WebView) {
-                    webview = document.activeElement;
                 } else {
-                    webview = document.querySelector('.webpanel-stack > .visible webview');
-                    fromPanel = true;
+                    webview = document.querySelector(`.webpanel-content webview[src*="${details.url}"]`);
+                    if (webview) fromPanel = true;
+                    else webview = document.querySelector(`webview[tab_id="${details.tabId}"]`);
                 }
 
                 webview?.executeScript({code: `(${setUrlClickObserver})(${fromPanel})`});
@@ -457,8 +456,6 @@
             thisElement.appendChild(buttonNewTab);
             thisElement.appendChild(buttonBackgroundTab);
             thisElement.appendChild(input);
-
-            console.log(webviewSrc, thisElement);
         }
     }
 
