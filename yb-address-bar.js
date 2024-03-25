@@ -46,15 +46,15 @@
         .YBDomain::after {
             content: attr(data-tooltip);
             position: absolute;
-            padding: 0.25px 6px;
+            padding: 0.5px 6px;
             background-color: var(--colorAccentBg);
             color: var(--colorAccentFg);
             border-radius: var(--radius);
-            opacity: 0;
             visibility: hidden;
             transition: opacity 0.3s;
             z-index: 2;
-            transform: translateX(calc(-100% + 6px));
+            transform: translateX(calc(-100% + 6px)) translateY(-1px);
+            height: 19px;
         }
 
         .YBDomain:hover::after {
