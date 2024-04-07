@@ -9,17 +9,35 @@
         return;
     }
 
-    const header = document.querySelector("#header"),
+    let header = document.querySelector("#header"),
         browser = document.querySelector("#browser"),
         mainBar = document.querySelector(".mainbar"),
-        bookmarkBar = document.querySelector(".bookmark-bar");
+        bookmarkBar = document.querySelector(".bookmark-bar"),
+        fullscreenEnabled;
 
-    let fullscreenEnabled;
     chrome.storage.local.get("fullScreenModEnabled").then((value) => {
         fullscreenEnabled = value.fullScreenModEnabled || value.fullScreenModEnabled == undefined;
         if (fullscreenEnabled) {
             setMarginAndZIndex(fullscreenEnabled);
             addFullScreenListener();
+        }
+    });
+
+    chrome.webNavigation.onCompleted.addListener((details) => {
+        let webview = document.querySelector(`.webpanel-content webview[src*="${details.url}"]`) ?? document.querySelector(`webview[tab_id="${details.tabId}"]`);        
+
+        webview?.executeScript({code: `(${setFullscreenObserver})()`});
+    });
+  
+    chrome.runtime.onMessage.addListener((message) => {
+        if (message.fullscreenExit) {
+            header = document.querySelector("#header");
+            browser = document.querySelector("#browser");
+            mainBar = document.querySelector(".mainbar");
+            bookmarkBar = document.querySelector(".bookmark-bar");
+
+            setMarginAndZIndex(fullscreenEnabled);
+            fullscreenEnabled ? hide() : show();
         }
     });
 
@@ -88,5 +106,14 @@
         element.style.marginTop = shouldAdjustStyles && offset ? `${offset}px` : "";
         element.style.marginBottom = shouldAdjustStyles ? `-${offset + element.offsetHeight}px` : "";
         element.style.zIndex = shouldAdjustStyles ? 9 : "";
+    }
+
+    function setFullscreenObserver() {
+        if (this.fullscreenListenerSet) return;
+
+        document.addEventListener('fullscreenchange', () => {
+            if(!document.webkitIsFullScreen) chrome.runtime.sendMessage({fullscreenExit: true});
+        });
+        this.fullscreenListenerSet = true;    
     }
 })();
