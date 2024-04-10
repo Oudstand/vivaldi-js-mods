@@ -64,6 +64,9 @@
             transform: translateX(-100%); 
             opacity: 0;
         }
+        .hidden-panel  .panel-group{
+            display: none;
+        }
 
         .fullscreen-listener-enabled #main { 
             padding-top: 0 !important; 
@@ -113,6 +116,7 @@
         panelHoverDiv.style.width = "1rem";
         panelHoverDiv.style.position = "fixed";
         panelHoverDiv.style.left = "0";
+        hoverDiv.style.zIndex = "10";
         panelsContainer.before(panelHoverDiv); 
     }
 
