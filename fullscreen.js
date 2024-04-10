@@ -5,7 +5,7 @@
 (function checkWebViewForFullscreen() {
     const webView = document.querySelector("#webview-container")
         hidePanels = true,
-        marginLeft = '0.5rem';
+        marginLeft = 'var(--edge-like-border-radius) / 2';
 
     if (!webView) {
         setTimeout(checkWebViewForFullscreen, 1337);
