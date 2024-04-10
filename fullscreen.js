@@ -99,13 +99,12 @@
     document.head.appendChild(styleEl);
 
     const hoverDiv = document.createElement("div");
-    hoverDiv.style.height = "15px";
+    hoverDiv.style.height = "9px";
     hoverDiv.style.width = "100vw";
     hoverDiv.style.position = "fixed";
     hoverDiv.style.left = "0";
     hoverDiv.style.top = "0";
     hoverDiv.style.zIndex = "10";
-    hoverDiv.pointerEvents = "none";
     document.body.insertBefore(hoverDiv, document.body.firstChild);
 
     const panelHoverDiv = document.createElement("div");
@@ -114,7 +113,6 @@
         panelHoverDiv.style.width = "1rem";
         panelHoverDiv.style.position = "fixed";
         panelHoverDiv.style.left = "0";
-        panelHoverDiv.pointerEvents = "none";
         panelsContainer.before(panelHoverDiv); 
     }
 
