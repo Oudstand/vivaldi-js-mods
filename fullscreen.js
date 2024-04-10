@@ -12,8 +12,8 @@
         return;
     }
 
-    let header = document.querySelector("#header"),
-        browser = document.querySelector("#browser"),
+    let app = document.querySelector("#app"),
+        header = document.querySelector("#header"),
         mainBar = document.querySelector(".mainbar"),
         bookmarkBar = document.querySelector(".bookmark-bar"),
         panelsContainer = document.querySelector("#panels-container"),
@@ -23,24 +23,6 @@
         fullscreenEnabled = value.fullScreenModEnabled || value.fullScreenModEnabled == undefined;
         if (fullscreenEnabled) {
             addFullScreenListener();
-        }
-    });
-
-    chrome.webNavigation.onCompleted.addListener((details) => {
-        let webview = document.querySelector(`.webpanel-content webview[src*="${details.url}"]`) ?? document.querySelector(`webview[tab_id="${details.tabId}"]`);        
-
-        webview?.executeScript({code: `(${setFullscreenObserver})()`});
-    });
-  
-    chrome.runtime.onMessage.addListener((message) => {
-        if (message.fullscreenExit) {
-            header = document.querySelector("#header");
-            browser = document.querySelector("#browser");
-            mainBar = document.querySelector(".mainbar");
-            bookmarkBar = document.querySelector(".bookmark-bar");
-            panelsContainer = document.querySelector("#panels-container");
-
-            fullscreenEnabled ? hide() : show();
         }
     });
 
@@ -56,11 +38,11 @@
             display: block;
         }
 
-        [hidden] { 
+        .fullscreen-listener-enabled.hidden-top #header, .fullscreen-listener-enabled.hidden-top .mainbar, .fullscreen-listener-enabled.hidden-top .bookmark-bar { 
             transform: translateY(-${header.offsetHeight + mainBar.offsetHeight + bookmarkBar.offsetHeight}px) !important; 
             opacity: 0;
         }
-        .hidden-panel { 
+        .fullscreen-listener-enabled.hidden-panel #panels-container { 
             transform: translateX(-100%); 
             opacity: 0;
         }
@@ -127,7 +109,7 @@
     }
 
     function addFullScreenListener() {
-        document.querySelector("#app").classList.add("fullscreen-listener-enabled");
+        app.classList.add("fullscreen-listener-enabled");
         webView.addEventListener("pointerenter", hide);
         hoverDiv.addEventListener("pointerenter", showTop);
         hidePanels && panelHoverDiv.addEventListener("pointerenter", showLeft);
@@ -135,7 +117,7 @@
     }
 
     function removeFullScreenListener() {
-        document.querySelector("#app").classList.remove("fullscreen-listener-enabled");
+        app.classList.remove("fullscreen-listener-enabled");
         webView.removeEventListener("pointerenter", hide);
         hoverDiv.removeEventListener("pointerenter", showTop);
         hidePanels && panelHoverDiv.removeEventListener("pointerenter", showLeft);
@@ -143,12 +125,10 @@
     }
 
     function hide() {
-        header.hidden = true;
-        mainBar.hidden = true;
-        bookmarkBar.hidden = true;
+        app.classList.add("hidden-top");
        
         if (hidePanels) {
-            panelsContainer.classList.add("hidden-panel");
+            app.classList.add("hidden-panel");
         }
     }
 
@@ -158,26 +138,12 @@
     }
 
     function showTop() {
-        header.hidden = false;
-        mainBar.hidden = false;
-        bookmarkBar.hidden = false;
-
-        browser.classList.remove("address-top-off");
-        browser.classList.add("address-top");
+        app.classList.remove("hidden-top");
     }
 
     function showLeft() {
         if (hidePanels) {
-            panelsContainer.classList.remove("hidden-panel");
+            app.classList.remove("hidden-panel");
         }
-    }
-
-    function setFullscreenObserver() {
-        if (this.fullscreenListenerSet) return;
-
-        document.addEventListener('fullscreenchange', () => {
-            if(!document.webkitIsFullScreen) chrome.runtime.sendMessage({fullscreenExit: true});
-        });
-        this.fullscreenListenerSet = true;    
     }
 })();
