@@ -70,6 +70,9 @@
             right: 0;
             bottom: 0;
         }
+        .fullscreen-listener-enabled .extensionIconPopupMenu {
+            z-index: 8;
+        }
     `;
 
     if(hidePanels) {
