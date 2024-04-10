@@ -22,7 +22,6 @@
     chrome.storage.local.get("fullScreenModEnabled").then((value) => {
         fullscreenEnabled = value.fullScreenModEnabled || value.fullScreenModEnabled == undefined;
         if (fullscreenEnabled) {
-            setMarginAndZIndex(fullscreenEnabled);
             addFullScreenListener();
         }
     });
@@ -41,7 +40,6 @@
             bookmarkBar = document.querySelector(".bookmark-bar");
             panelsContainer = document.querySelector("#panels-container");
 
-            setMarginAndZIndex(fullscreenEnabled);
             fullscreenEnabled ? hide() : show();
         }
     });
@@ -50,14 +48,52 @@
         (id, combination) => combination === "Ctrl+Alt+F" && toggleFullScreen()
     );
 
-    const style = document.createElement("style");
-    style.appendChild(document.createTextNode(`
-        .fullscreen-listener-enabled #header, .fullscreen-listener-enabled .mainbar, .fullscreen-listener-enabled .bookmark-bar, .fullscreen-listener-enabled #panels-container { transition: transform .5s !important; }
-        [hidden] { transform: translateY(-100px) !important; }
-        .hidden-panel { transform: translateX(-100%); }
-        .fullscreen-listener-enabled #main { padding-top: 0 !important; }
-    `));
-    document.head.appendChild(style);
+    let style = `
+        .fullscreen-listener-enabled #header, .fullscreen-listener-enabled .mainbar, .fullscreen-listener-enabled .bookmark-bar, .fullscreen-listener-enabled #panels-container { 
+            transition: transform .5s, opacity .5s ease-in-out !important; 
+        }
+
+        [hidden] { 
+            transform: translateY(-${header.offsetHeight + mainBar.offsetHeight + bookmarkBar.offsetHeight}px) !important; 
+            opacity: 0;
+        }
+        .hidden-panel { 
+            transform: translateX(-100%); 
+            opacity: 0;
+        }
+
+        .fullscreen-listener-enabled #main { 
+            padding-top: 0 !important; 
+        }
+
+        .fullscreen-listener-enabled #header, .fullscreen-listener-enabled .mainbar, .fullscreen-listener-enabled .bookmark-bar { 
+            z-index: 7;
+        }
+        .fullscreen-listener-enabled .mainbar { 
+            margin-top: ${header.offsetHeight}px; 
+        }
+        .fullscreen-listener-enabled .bookmark-bar {
+            margin-top: 0;
+        }
+        .fullscreen-listener-enabled #main, .fullscreen-listener-enabled .inner {
+            position: absolute !important;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+    `;
+
+    if(hidePanels) {
+        style += `.fullscreen-listener-enabled #webview-container {
+            margin-left: calc(-${panelsContainer.offsetWidth}px + ${marginLeft});
+        }`;
+    }
+
+    const styleEl = document.createElement("style");
+    styleEl.appendChild(document.createTextNode(style));
+
+    document.head.appendChild(styleEl);
 
     const hoverDiv = document.createElement("div");
     hoverDiv.style.height = "9px";
@@ -65,7 +101,7 @@
     hoverDiv.style.position = "fixed";
     hoverDiv.style.left = "0";
     hoverDiv.style.top = "0";
-    hoverDiv.style.zIndex = "1";
+    hoverDiv.style.zIndex = "10";
     hoverDiv.pointerEvents = "none";
     document.body.insertBefore(hoverDiv, document.body.firstChild);
 
@@ -81,7 +117,6 @@
 
     function toggleFullScreen() {
         fullscreenEnabled = !fullscreenEnabled;
-        setMarginAndZIndex(fullscreenEnabled);
         fullscreenEnabled ? addFullScreenListener() : removeFullScreenListener();
         chrome.storage.local.set({fullScreenModEnabled: fullscreenEnabled})
     }
@@ -130,26 +165,6 @@
         if (hidePanels) {
             panelsContainer.classList.remove("hidden-panel");
         }
-    }
-
-    function setMarginAndZIndex(shouldAdjustStyles) {
-        const headerOffset = header.offsetHeight;
-        const mainBarOffset = mainBar.offsetHeight;
-
-        adjustStyles(header, shouldAdjustStyles, 0);
-        adjustStyles(mainBar, shouldAdjustStyles, headerOffset);
-        adjustStyles(bookmarkBar, shouldAdjustStyles, headerOffset + mainBarOffset);
-
-        if (hidePanels) {
-            webView.style.marginLeft = shouldAdjustStyles ? `calc(-${panelsContainer.offsetWidth}px + ${marginLeft})` : "";
-        }
-    }
-
-    function adjustStyles(element, shouldAdjustStyles, offset) {
-        if (!element) return;
-        element.style.marginTop = shouldAdjustStyles && offset ? `${offset}px` : "";
-        element.style.marginBottom = shouldAdjustStyles ? `-${offset + element.offsetHeight}px` : "";
-        element.style.zIndex = shouldAdjustStyles ? 9 : "";
     }
 
     function setFullscreenObserver() {
