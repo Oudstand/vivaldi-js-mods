@@ -52,6 +52,9 @@
         .fullscreen-listener-enabled #header, .fullscreen-listener-enabled .mainbar, .fullscreen-listener-enabled .bookmark-bar, .fullscreen-listener-enabled #panels-container { 
             transition: transform .5s, opacity .5s ease-in-out !important; 
         }
+        .fullscreen-listener-enabled .mainbar {
+            display: block;
+        }
 
         [hidden] { 
             transform: translateY(-${header.offsetHeight + mainBar.offsetHeight + bookmarkBar.offsetHeight}px) !important; 
@@ -96,7 +99,7 @@
     document.head.appendChild(styleEl);
 
     const hoverDiv = document.createElement("div");
-    hoverDiv.style.height = "9px";
+    hoverDiv.style.height = "15px";
     hoverDiv.style.width = "100vw";
     hoverDiv.style.position = "fixed";
     hoverDiv.style.left = "0";
