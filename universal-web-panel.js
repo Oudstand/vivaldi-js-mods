@@ -115,7 +115,7 @@
                     this.#register();
                 }
             });
-            observer.observe(this.#panelStack, { childList: true });
+            observer.observe(this.#panelStack, {childList: true});
             this.#observers.push(observer);
         }
 
@@ -142,7 +142,7 @@
                     const button = toolbar.querySelector(`button[name="${PANEL_ID}"]`);
                     if (button) button.innerHTML = ICON_SPAN;
                 });
-                observer.observe(toolbar, { childList: true });
+                observer.observe(toolbar, {childList: true});
                 this.#observers.push(observer);
             }
         }
@@ -151,7 +151,7 @@
             const observer = new MutationObserver(() => {
                 if (this.#panelButtonInToolbarEditor) this.#panelButtonInToolbarEditor.innerHTML = ICON_SPAN;
             });
-            observer.observe(this.#browser, { childList: true });
+            observer.observe(this.#browser, {childList: true});
             this.#observers.push(observer);
         }
 
@@ -366,7 +366,7 @@
 
         #executeScript(script) {
             this.#showWebview();
-            this.#webview.executeScript({ code: script });
+            this.#webview.executeScript({code: script});
         }
 
         #showHtml(html) {
@@ -416,7 +416,7 @@
                 var toolbar = await this.#prefs.get(path);
                 if (toolbar.includes(PANEL_ID)) {
                     toolbar = toolbar.filter((id) => id !== PANEL_ID);
-                    await this.#prefs.set({ path: path, value: toolbar });
+                    await this.#prefs.set({path: path, value: toolbar});
                 }
             }
         }
@@ -427,8 +427,8 @@
             return await vivaldi.prefs.get(path);
         }
 
-        async set({ path, value }) {
-            await vivaldi.prefs.set({ path, value });
+        async set({path, value}) {
+            await vivaldi.prefs.set({path, value});
         }
 
         async getWebpanels() {
@@ -436,7 +436,7 @@
         }
 
         async setWebpanels(webpanels) {
-            await vivaldi.prefs.set({ path: 'vivaldi.panels.web.elements', value: webpanels });
+            await vivaldi.prefs.set({path: 'vivaldi.panels.web.elements', value: webpanels});
         }
 
         async getPanelToolbar() {
@@ -444,7 +444,7 @@
         }
 
         async setPanelToolbar(toolbar) {
-            await vivaldi.prefs.set({ path: 'vivaldi.toolbars.panel', value: toolbar });
+            await vivaldi.prefs.set({path: 'vivaldi.toolbars.panel', value: toolbar});
         }
 
         async addOnWebpanelsChangedListner(cb) {

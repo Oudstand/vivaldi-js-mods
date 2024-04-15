@@ -46,7 +46,7 @@
         .YBDomain::after {
             content: attr(data-tooltip);
             position: absolute;
-            padding: 0.5px 6px;
+            padding: 1px 6px;
             background-color: var(--colorAccentBg);
             color: var(--colorAccentFg);
             border-radius: var(--radius);
@@ -281,7 +281,7 @@
             window.ybAddressBar = new YBAddressBar();
         } else {
             setTimeout(initMod, 500);
-        }        
+        }
     }
 
     setTimeout(initMod, 500);

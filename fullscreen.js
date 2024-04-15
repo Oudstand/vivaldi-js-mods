@@ -4,7 +4,7 @@
  */
 (function checkWebViewForFullscreen() {
     const webView = document.querySelector("#webview-container")
-        hidePanels = true,
+    hidePanels = true,
         marginLeft = 'var(--edge-like-border-radius) / 2';
 
     if (!webView) {
@@ -75,7 +75,7 @@
         }
     `;
 
-    if(hidePanels) {
+    if (hidePanels) {
         style += `.fullscreen-listener-enabled #webview-container {
             margin-left: calc(-${panelsContainer.offsetWidth}px + ${marginLeft});
         }`;
@@ -96,13 +96,13 @@
     document.body.insertBefore(hoverDiv, document.body.firstChild);
 
     const panelHoverDiv = document.createElement("div");
-    if (hidePanels) {        
+    if (hidePanels) {
         panelHoverDiv.style.height = "100%";
         panelHoverDiv.style.width = "1rem";
         panelHoverDiv.style.position = "fixed";
         panelHoverDiv.style.left = "0";
         hoverDiv.style.zIndex = "10";
-        panelsContainer.before(panelHoverDiv); 
+        panelsContainer.before(panelHoverDiv);
     }
 
     function toggleFullScreen() {
@@ -129,7 +129,7 @@
 
     function hide() {
         app.classList.add("hidden-top");
-       
+
         if (hidePanels) {
             app.classList.add("hidden-panel");
         }

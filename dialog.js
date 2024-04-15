@@ -406,21 +406,21 @@
             input.style.margin = '0 0.5rem 0 0.5rem';
             input.style.padding = '0.25rem 0.5rem';
             input.addEventListener("keydown", function (event) {
-              if (event.key === "Enter") {
-                let value = input.value;
-                if (value.startsWith("http://") ||
-                  value.startsWith("https://") ||
-                  value.startsWith("file://") ||
-                  value.startsWith("vivaldi://") ||
-                  value === "about:blank"
-                ) {
-                  webview.src = value;
-                } else {
-                    vivaldi.searchEngines.getSearchRequest(defaultSearchId, value).then(function (searchRequest) {
-                        webview.src = searchRequest.url;
-                    });
+                if (event.key === "Enter") {
+                    let value = input.value;
+                    if (value.startsWith("http://") ||
+                        value.startsWith("https://") ||
+                        value.startsWith("file://") ||
+                        value.startsWith("vivaldi://") ||
+                        value === "about:blank"
+                    ) {
+                        webview.src = value;
+                    } else {
+                        vivaldi.searchEngines.getSearchRequest(defaultSearchId, value).then(function (searchRequest) {
+                            webview.src = searchRequest.url;
+                        });
+                    }
                 }
-              }
             });
 
             setBackButtonContent(buttonBack);

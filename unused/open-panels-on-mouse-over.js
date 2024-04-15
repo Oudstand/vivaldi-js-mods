@@ -5,16 +5,16 @@ function panelMouseOver(autoHide, delay_show, delay_change, delay_hide) {
     var show_token = null;
     var activeButton = null;
     /* Stop timer if mouse exits screen */
-    document.addEventListener("mouseout", function(e) {
+    document.addEventListener("mouseout", function (e) {
         clearTimeout(show_token);
     });
     /* Do auto-hide if applicable */
     if (autoHide) {
-        var content = document.getElementById("webview-container").onmouseover = function() {
+        var content = document.getElementById("webview-container").onmouseover = function () {
             if (!document.getElementById("panels-container").getAttribute('class').includes("icons")) {
                 clearTimeout(show_token);
-                setTimeout(function() {
-                    vivaldi.prefs.get('vivaldi.panels.as_overlay.enabled', function(isEnabled) {
+                setTimeout(function () {
+                    vivaldi.prefs.get('vivaldi.panels.as_overlay.enabled', function (isEnabled) {
                         hidePanel(isEnabled);
                     });
                 }, delay_hide);
@@ -44,12 +44,12 @@ function panelMouseOver(autoHide, delay_show, delay_change, delay_hide) {
         if (doDelay) {
             delay = (activeButtonIndex() < 0) ? delay_show : delay_change;
         }
-        show_token = setTimeout(function() {
+        show_token = setTimeout(function () {
             var newButton = buttons[index];
             if (!['active', 'add', 'webpanel-suggestion', 'addwebpanel'].some(cls => newButton.classList.contains(cls))) {
                 activeButton = newButton;
-                activeButton.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }));
-                activeButton.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
+                activeButton.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true, pointerId: 1}));
+                activeButton.dispatchEvent(new PointerEvent('pointerup', {bubbles: true, pointerId: 1}));
                 panel = index;
             }
         }, delay);
@@ -57,25 +57,26 @@ function panelMouseOver(autoHide, delay_show, delay_change, delay_hide) {
 
     function setListeners() {
         for (let index = 0; index < buttons.length; index++) {
-            buttons[index].onmouseover = function() {
+            buttons[index].onmouseover = function () {
                 setActive(index, true);
             };
-            buttons[index].onmouseout = function() {
+            buttons[index].onmouseout = function () {
                 clearTimeout(show_token);
             };
-            buttons[index].ondragover = function() {
+            buttons[index].ondragover = function () {
                 setActive(index, false);
             };
         }
     }
+
     setListeners();
 
     function hidePanel(isFloating) {
         if (isFloating) {
             activeButton = activeButton ? activeButton : getActiveButton();
             if (activeButton && (activeButton.parentElement.getAttribute('class').includes("active"))) {
-                activeButton.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }));
-                activeButton.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
+                activeButton.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true, pointerId: 1}));
+                activeButton.dispatchEvent(new PointerEvent('pointerup', {bubbles: true, pointerId: 1}));
                 activeButton = null;
             }
         }
@@ -88,7 +89,7 @@ function addObserver() {
         childList: true,
         subtree: true
     };
-    const callback = function(mutationList, observer) {
+    const callback = function (mutationList, observer) {
         for (let mutation of mutationList) {
             if (mutation.type === 'childList') {
                 panelMouseOver(true, 100, 50, 250);

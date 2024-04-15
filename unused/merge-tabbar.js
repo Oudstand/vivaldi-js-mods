@@ -10,10 +10,10 @@ setTimeout(function waitMergeTabbar() {
 
 function moveMainbar() {
     let mainbar = document.querySelector('.mainbar'),
-    extensions = document.querySelector('.toolbar-extensions'),
-    tabsContainer = document.querySelector('#tabs-container'),
-    tabs = document.querySelector('.resize'),
-    vivaldi = document.querySelector('.vivaldi');
+        extensions = document.querySelector('.toolbar-extensions'),
+        tabsContainer = document.querySelector('#tabs-container'),
+        tabs = document.querySelector('.resize'),
+        vivaldi = document.querySelector('.vivaldi');
 
     tabsContainer.before(mainbar);
     mainbar.before(vivaldi);
