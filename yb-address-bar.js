@@ -277,7 +277,11 @@
     };
 
     function initMod() {
-        window.ybAddressBar = new YBAddressBar();
+        if (document.querySelector('#urlFieldInput')) {
+            window.ybAddressBar = new YBAddressBar();
+        } else {
+            setTimeout(initMod, 500);
+        }        
     }
 
     setTimeout(initMod, 500);
