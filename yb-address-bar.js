@@ -54,7 +54,7 @@
             transition: opacity 0.3s;
             z-index: 2;
             transform: translateX(calc(-100% + 6px)) translateY(-1px);
-            height: 19px;
+            height: 18px;
         }
 
         .YBDomain:hover::after {
