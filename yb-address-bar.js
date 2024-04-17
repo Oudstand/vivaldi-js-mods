@@ -43,23 +43,8 @@
             white-space: nowrap;
         }
 
-        .YBDomain::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            padding: 1px 6px;
-            background-color: var(--colorAccentBg);
-            color: var(--colorAccentFg);
-            border-radius: var(--radius);
-            visibility: hidden;
-            transition: opacity 0.3s;
-            z-index: 2;
-            transform: translateX(calc(-100% + 6px)) translateY(-1px);
-            height: 18px;
-        }
-
-        .YBDomain:hover::after {
-          opacity: 1;
-          visibility: visible;
+        .YBDomain:hover:hover {
+          max-width: unset;
         }
 
         .YBTitle {
@@ -127,8 +112,8 @@
             return style;
         }
 
-        #createYBDomainButton() {
-            const domainInfo = this.#parseUrlDomain(this.#urlFragmentLink ? this.#urlFragmentLink.innerText : this.#urlFragmentHighlight.innerText);
+        async #createYBDomainButton() {
+            const domainInfo = await  this.#parseUrlDomain(this.#urlFragmentLink ? this.#urlFragmentLink.innerText : this.#urlFragmentHighlight.innerText);
             if (!domainInfo.domain) {
                 return null;
             }
@@ -149,7 +134,6 @@
             const ybDomain = document.createElement('div');
             ybDomain.className = 'UrlFragment--Lowlight YBDomain';
             ybDomain.innerText = domain;
-            ybDomain.setAttribute('data-tooltip', domain);
             return ybDomain;
         }
 
@@ -211,7 +195,7 @@
             return url.match(regexp)[1];
         }
 
-        #parseUrlDomain(url) {
+        async #parseUrlDomain(url) {
             if (url.startsWith('vivaldi://')) {
                 const domain = this.#parseVivaldiDomain(url);
                 return {type: 'vivaldi', domain: domain, clickable: true};
@@ -219,6 +203,9 @@
                 return {type: 'file', domain: 'file', clickable: false};
             } else if (url.startsWith('about:')) {
                 return {type: 'about', domain: url, clickable: true};
+            } else if (url.startsWith('chrome-extension://')) {
+                let extension = await chrome.management.get(url.match(/chrome-extension:\/\/([^/]+)/)[1]);
+                return {type: 'extension', domain: extension.name, clickable: false};
             } else {
                 return {type: 'url', domain: url, clickable: true};
             }
