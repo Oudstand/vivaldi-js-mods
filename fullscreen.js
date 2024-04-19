@@ -3,9 +3,10 @@
  * Hides the tab bar and address bar when not hovering
  */
 (function checkWebViewForFullscreen() {
-    const webView = document.querySelector("#webview-container")
-    hidePanels = true,
-        marginLeft = 'var(--edge-like-border-radius) / 2';
+    const webView = document.querySelector("#webview-container"),
+        hidePanels = true,
+        marginLeft = 'var(--edge-like-border-radius) / 2',
+        bookmarBarPadding = '3px';
 
     if (!webView) {
         setTimeout(checkWebViewForFullscreen, 1337);
@@ -46,7 +47,7 @@
             transform: translateX(-100%); 
             opacity: 0;
         }
-        .hidden-panel  .panel-group{
+        .hidden-panel .panel-group{
             display: none;
         }
 
@@ -73,12 +74,24 @@
         .fullscreen-listener-enabled .extensionIconPopupMenu {
             z-index: 8;
         }
+
+        .fullscreen-listener-enabled footer {
+            margin-top: auto !important;
+        }
     `;
 
     if (hidePanels) {
         style += `.fullscreen-listener-enabled #webview-container {
             margin-left: calc(-${panelsContainer.offsetWidth}px + ${marginLeft});
         }`;
+    }
+
+    if (bookmarBarPadding) {
+        style += `.fullscreen-listener-enabled .bookmark-bar {
+            height: auto;
+            padding-top: 3px;
+            padding-bottom: 3px;
+        }`
     }
 
     const styleEl = document.createElement("style");
