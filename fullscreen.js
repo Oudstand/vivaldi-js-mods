@@ -89,8 +89,8 @@
     if (bookmarBarPadding) {
         style += `.fullscreen-listener-enabled .bookmark-bar {
             height: auto;
-            padding-top: 3px;
-            padding-bottom: 3px;
+            padding-top: ${bookmarBarPadding};
+            padding-bottom: ${bookmarBarPadding};
         }`
     }
 
