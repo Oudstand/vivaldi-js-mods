@@ -391,11 +391,7 @@
             webview = data ? data.webview : undefined;
         if (webview && document.getElementById(inputId) === null) {
             let webviewSrc = webview.src,
-                input = document.createElement('input', 'text'),
-                buttonBack = createOptionsButton(),
-                buttonForward = createOptionsButton(),
-                buttonNewTab = createOptionsButton(),
-                buttonBackgroundTab = createOptionsButton();
+                input = document.createElement('input', 'text');
 
             input.value = webviewSrc;
             input.id = inputId;
@@ -423,51 +419,40 @@
                 }
             });
 
-            setBackButtonContent(buttonBack);
-            buttonBack.addEventListener('click', function (event) {
-                if (event.target === this || this.firstChild) {
-                    webview.back();
-                }
-            });
+            let buttonBack = createOptionsButton(getBackButtonContent(), webview.back.bind(webview)),
+                buttonForward = createOptionsButton(getForwardButtonContent(), webview.forward.bind(webview)),
+                buttonReaderView = createOptionsButton(getReaderViewButtonContent(), showReaderView.bind(this, webview)),
+                buttonNewTab = createOptionsButton(getNewTabButtonContent(), openNewTab.bind(this, inputId, true)),
+                buttonBackgroundTab = createOptionsButton(getBackgroundTabButtonContent(), openNewTab.bind(this, inputId, false));
 
-            setForwardButtonContent(buttonForward);
-            buttonForward.addEventListener('click', function (event) {
-                if (event.target === this || this.firstChild) {
-                    webview.forward();
-                }
-            });
-
-            buttonNewTab.innerHTML = getNewTabContent();
-            buttonNewTab.addEventListener('click', function (event) {
-                if (event.target === this || this.firstChild) {
-                    openNewTab(inputId, true);
-                }
-            });
-
-            buttonBackgroundTab.innerHTML = getBackgroundTabContent();
-            buttonBackgroundTab.addEventListener('click', function (event) {
-                if (event.target === this || this.firstChild) {
-                    openNewTab(inputId, false);
-                }
-            });
-
-            thisElement.appendChild(buttonBack);
-            thisElement.appendChild(buttonForward);
-            thisElement.appendChild(buttonNewTab);
-            thisElement.appendChild(buttonBackgroundTab);
-            thisElement.appendChild(input);
+            thisElement.append(buttonBack, buttonForward, buttonReaderView, buttonNewTab, buttonBackgroundTab, input);
         }
     }
 
     /**
      * Create a button with default style for the web view options.
+     * @param {Node | string} content the content of the button to display
+     * @param {Function} clickListenerCallback the click listeners callback function
      */
-    function createOptionsButton() {
+    function createOptionsButton(content, clickListenerCallback) {
         let button = document.createElement('button');
 
         button.style.background = 'transparent';
         button.style.margin = '0 0.5rem 0 0.5rem';
         button.style.border = 'unset';
+        button.style.cursor = 'pointer';
+
+        if (typeof content === 'string') {
+            button.innerHTML = content;
+        } else {
+            button.appendChild(content);
+        }
+
+        button.addEventListener('click', function (event) {
+            if (event.target === this || this.firstChild) {
+                clickListenerCallback();
+            }
+        });
 
         return button;
     }
@@ -484,6 +469,40 @@
             tempId = Math.floor(Math.random() * 1000 + 1);
         }
         return tempId;
+    }
+
+    /**
+     * Sets the webviews content to a reader version
+     *
+     * @param {Webview} webview the webview to update 
+     */
+    function showReaderView(webview) {
+        if (webview.src.includes('https://reader-next.pages.dev/?url=')) {
+            webview.src = webview.src.replace('https://reader-next.pages.dev/?url=', '');
+        } else {
+            webview.src = 'https://reader-next.pages.dev?url=' + webview.src;
+
+            const injectCSS = () => {
+                const script = `
+
+                    var style = document.createElement('style');
+                    style.textContent = \`
+                        body {
+                            max-width: 100ch;
+                        }
+                        body > *:not(#output):not(#title) {
+                            display: none;
+                        }
+                    \`;
+                    document.head.appendChild(style);
+                `;
+
+                webview.executeScript({code: script});
+                webview.removeEventListener('loadstop', injectCSS);
+            }
+
+            webview.addEventListener('loadstop', injectCSS);
+        }
     }
 
     /**
@@ -505,40 +524,39 @@
     }
 
     /**
-     * Sets the svg icon for the back button
+     * Gets the svg icon for the back button
      */
-    function setBackButtonContent(buttonBack) {
+    function getBackButtonContent() {
         let svg = document.querySelector('.button-toolbar [name="Back"] svg');
-        if (svg) {
-            buttonBack.appendChild(svg.cloneNode(true));
-        } else {
-            buttonBack.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.2 288 416 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-306.7 0L214.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg>';
-        }
+        return svg ? svg.cloneNode(true) : '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.2 288 416 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-306.7 0L214.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg>';
     }
 
     /**
-     * Sets the svg icon for the forward button
+     * Gets the svg icon for the forward button
      */
-    function setForwardButtonContent(forwardButton) {
+    function getForwardButtonContent() {
         let svg = document.querySelector('.button-toolbar [name="Forward"] svg');
-        if (svg) {
-            forwardButton.appendChild(svg.cloneNode(true));
-        } else {
-            forwardButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M438.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-160-160c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L338.8 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l306.7 0L233.4 393.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l160-160z"/></svg>';
-        }
+        return svg ? svg.cloneNode(true) : '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M438.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-160-160c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L338.8 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l306.7 0L233.4 393.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l160-160z"/></svg>';
+    }
+
+    /**
+     * Gets the svg icon for the reader view button
+     */
+    function getReaderViewButtonContent() {
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M3 4h10v1H3zM3 6h10v1H3zM3 8h10v1H3zM3 10h6v1H3z"></path></svg>';
     }
 
     /**
      *  Returns string of external link alt svg icon
      */
-    function getNewTabContent() {
+    function getNewTabButtonContent() {
         return '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 512 512"><path d="M320 0c-17.7 0-32 14.3-32 32s14.3 32 32 32h82.7L201.4 265.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L448 109.3V192c0 17.7 14.3 32 32 32s32-14.3 32-32V32c0-17.7-14.3-32-32-32H320zM80 32C35.8 32 0 67.8 0 112V432c0 44.2 35.8 80 80 80H400c44.2 0 80-35.8 80-80V320c0-17.7-14.3-32-32-32s-32 14.3-32 32V432c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V112c0-8.8 7.2-16 16-16H192c17.7 0 32-14.3 32-32s-14.3-32-32-32H80z"/></svg>';
     }
 
     /**
      * Returns string of external link square alt svg icon
      */
-    function getBackgroundTabContent() {
+    function getBackgroundTabButtonContent() {
         return '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M384 32c35.3 0 64 28.7 64 64V416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96C0 60.7 28.7 32 64 32H384zM160 144c-13.3 0-24 10.7-24 24s10.7 24 24 24h94.1L119 327c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l135-135V328c0 13.3 10.7 24 24 24s24-10.7 24-24V168c0-13.3-10.7-24-24-24H160z"/></svg>';
     }
 })();
