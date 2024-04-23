@@ -15,49 +15,49 @@
     // Wait for the browser to come to a ready state
     setTimeout(function waitDialog() {
         const browser = document.getElementById('browser');
-        if (browser) {
-            // Create a context menu item to call on a link
-            createContextMenuOption();
-
-            // create initial search engine context menus
-            updateSearchEnginesAndContextMenu();
-
-            // detect changes in search engines and recreate the context menus
-            vivaldi.searchEngines.onTemplateUrlsChanged.addListener(() => {
-                removeContextMenuSelectSearch();
-                updateSearchEnginesAndContextMenu();
-            });
-
-            // Setup keyboard shortcuts
-            vivaldi.tabsPrivate.onKeyboardShortcut.addListener(keyCombo);
-
-            chrome.runtime.onMessage.addListener((message) => {
-                if (message.url) {
-                    fromPanel = message.fromPanel;
-                    dialogTab(message.url, message.fromPanel);
-                }
-            });
-
-            chrome.webNavigation.onCompleted.addListener((details) => {
-                let fromPanel = false,
-                    webview;
-
-                if (details.tabId < 0) {
-                    let view = Array.from(webviews.values()).pop();
-                    webview = view?.webview;
-                    fromPanel = view?.fromPanel;
-                } else {
-                    webview = document.querySelector(`.webpanel-content webview[src*="${details.url}"]`);
-                    if (webview) fromPanel = true;
-                    else webview = document.querySelector(`webview[tab_id="${details.tabId}"]`);
-                }
-
-                webview?.executeScript({code: `(${setUrlClickObserver})(${fromPanel})`});
-            });
-
-        } else {
+        if (!browser) {
             setTimeout(waitDialog, 300);
+            return;
         }
+
+        // Create a context menu item to call on a link
+        createContextMenuOption();
+
+        // create initial search engine context menus
+        updateSearchEnginesAndContextMenu();
+
+        // detect changes in search engines and recreate the context menus
+        vivaldi.searchEngines.onTemplateUrlsChanged.addListener(() => {
+            removeContextMenuSelectSearch();
+            updateSearchEnginesAndContextMenu();
+        });
+
+        // Setup keyboard shortcuts
+        vivaldi.tabsPrivate.onKeyboardShortcut.addListener(keyCombo);
+
+        chrome.runtime.onMessage.addListener((message) => {
+            if (message.url) {
+                fromPanel = message.fromPanel;
+                dialogTab(message.url, message.fromPanel);
+            }
+        });
+
+        chrome.webNavigation.onCompleted.addListener((details) => {
+            let fromPanel = false,
+                webview;
+
+            if (details.tabId < 0) {
+                let view = Array.from(webviews.values()).pop();
+                webview = view?.webview;
+                fromPanel = view?.fromPanel;
+            } else {
+                webview = document.querySelector(`.webpanel-content webview[src*="${details.url}"]`);
+                if (webview) fromPanel = true;
+                else webview = document.querySelector(`webview[tab_id="${details.tabId}"]`);
+            }
+
+            webview?.executeScript({code: `(${setUrlClickObserver})(${fromPanel})`});
+        });
     }, 300);
 
     /**
@@ -474,7 +474,7 @@
     /**
      * Sets the webviews content to a reader version
      *
-     * @param {Webview} webview the webview to update 
+     * @param {Webview} webview the webview to update
      */
     function showReaderView(webview) {
         if (webview.src.includes('https://reader-next.pages.dev/?url=')) {
