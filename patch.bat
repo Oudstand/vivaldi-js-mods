@@ -5,8 +5,7 @@ taskkill /F /IM vivaldi.exe /T
 setlocal enabledelayedexpansion
 
 :: This is a list of your Vivaldi installations' Application folders (you can use the Vivaldi folder, too, but it takes longer to find the file):
-set installPaths="D:\Vivaldi Snapshot\Application\" 
-
+set installPaths="%~dp0..\Application\"
 :: Don't alter anything below this point ;)
 
 
