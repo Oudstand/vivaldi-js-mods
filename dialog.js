@@ -208,16 +208,14 @@
     function keyCombo(id, combination) {
         /** Open Default Search Engine in Dialog and search for selected text */
         const searchForSelectedText = async () => {
-            let tabs = await chrome.tabs.query({active: true})
-            vivaldi.utilities.getSelectedText(tabs[0].id, (text) =>
-                dialogTabSearch(defaultSearchId, text)
-            );
-        }
+            let tabs = await chrome.tabs.query({active: true});
+            vivaldi.utilities.getSelectedText(tabs[0].id, (text) => dialogTabSearch(defaultSearchId, text));
+        };
 
         const SHORTCUTS = {
             'Ctrl+Alt+Period': searchForSelectedText,
             'Ctrl+Shift+F': searchForSelectedText,
-            'Esc': () => removeDialog(Array.from(webviews.keys()).pop())
+            Esc: () => removeDialog(Array.from(webviews.keys()).pop()),
         };
 
         const customShortcut = SHORTCUTS[combination];
@@ -270,7 +268,7 @@
         webviews.set(webviewId, {
             divContainer: divContainer,
             webview: webview,
-            fromPanel: fromPanel
+            fromPanel: fromPanel,
         });
 
         //#region webview properties
@@ -293,7 +291,7 @@
         webview.addEventListener('loadstop', function () {
             document.getElementById('progressBar-' + webviewId).style.display = 'none';
         });
-        fromPanel && webview.addEventListener('mousedown', event => event.stopPropagation());
+        fromPanel && webview.addEventListener('mousedown', (event) => event.stopPropagation());
         //#endregion
 
         //#region divOptionContainer properties
@@ -344,7 +342,7 @@
         divContainer.style.transitionDelay = '0s';
         divContainer.style.backdropFilter = 'blur(1px)';
 
-        let stopEvent = event => {
+        let stopEvent = (event) => {
             event.preventDefault();
             event.stopPropagation();
         };
@@ -377,7 +375,9 @@
         divContainer.appendChild(progressBarContainer);
 
         // Get for current tab and append divContainer
-        fromPanel ? document.body.appendChild(divContainer) : document.querySelector('.active.visible.webpageview').appendChild(divContainer);
+        fromPanel
+            ? document.body.appendChild(divContainer)
+            : document.querySelector('.active.visible.webpageview').appendChild(divContainer);
     }
 
     /**
@@ -395,20 +395,21 @@
 
             input.value = webviewSrc;
             input.id = inputId;
-            input.style.background = 'var(--colorAccentBgAlpha)' // 'transparent';
+            input.style.background = 'var(--colorAccentBgAlpha)'; // 'transparent';
             input.style.color = 'white';
             input.style.border = 'unset';
             input.style.width = '20%';
             input.style.margin = '0 0.5rem 0 0.5rem';
             input.style.padding = '0.25rem 0.5rem';
-            input.addEventListener("keydown", function (event) {
-                if (event.key === "Enter") {
+            input.addEventListener('keydown', function (event) {
+                if (event.key === 'Enter') {
                     let value = input.value;
-                    if (value.startsWith("http://") ||
-                        value.startsWith("https://") ||
-                        value.startsWith("file://") ||
-                        value.startsWith("vivaldi://") ||
-                        value === "about:blank"
+                    if (
+                        value.startsWith('http://') ||
+                        value.startsWith('https://') ||
+                        value.startsWith('file://') ||
+                        value.startsWith('vivaldi://') ||
+                        value === 'about:blank'
                     ) {
                         webview.src = value;
                     } else {
@@ -421,9 +422,15 @@
 
             let buttonBack = createOptionsButton(getBackButtonContent(), webview.back.bind(webview)),
                 buttonForward = createOptionsButton(getForwardButtonContent(), webview.forward.bind(webview)),
-                buttonReaderView = createOptionsButton(getReaderViewButtonContent(), showReaderView.bind(this, webview)),
+                buttonReaderView = createOptionsButton(
+                    getReaderViewButtonContent(),
+                    showReaderView.bind(this, webview)
+                ),
                 buttonNewTab = createOptionsButton(getNewTabButtonContent(), openNewTab.bind(this, inputId, true)),
-                buttonBackgroundTab = createOptionsButton(getBackgroundTabButtonContent(), openNewTab.bind(this, inputId, false));
+                buttonBackgroundTab = createOptionsButton(
+                    getBackgroundTabButtonContent(),
+                    openNewTab.bind(this, inputId, false)
+                );
 
             thisElement.append(buttonBack, buttonForward, buttonReaderView, buttonNewTab, buttonBackgroundTab, input);
         }
@@ -499,7 +506,7 @@
 
                 webview.executeScript({code: script});
                 webview.removeEventListener('loadstop', injectCSS);
-            }
+            };
 
             webview.addEventListener('loadstop', injectCSS);
         }
@@ -513,7 +520,7 @@
     function openNewTab(inputId, active) {
         let url = document.getElementById(inputId).value;
 
-        chrome.tabs.create({url: url, active: active})
+        chrome.tabs.create({url: url, active: active});
     }
 
     /**
@@ -528,7 +535,9 @@
      */
     function getBackButtonContent() {
         let svg = document.querySelector('.button-toolbar [name="Back"] svg');
-        return svg ? svg.cloneNode(true) : '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.2 288 416 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-306.7 0L214.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg>';
+        return svg
+            ? svg.cloneNode(true)
+            : '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.2 288 416 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-306.7 0L214.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg>';
     }
 
     /**
@@ -536,7 +545,9 @@
      */
     function getForwardButtonContent() {
         let svg = document.querySelector('.button-toolbar [name="Forward"] svg');
-        return svg ? svg.cloneNode(true) : '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M438.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-160-160c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L338.8 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l306.7 0L233.4 393.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l160-160z"/></svg>';
+        return svg
+            ? svg.cloneNode(true)
+            : '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M438.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-160-160c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L338.8 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l306.7 0L233.4 393.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l160-160z"/></svg>';
     }
 
     /**
