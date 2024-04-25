@@ -1,7 +1,22 @@
+@echo off
+
 :: end Vivaldi ::
 taskkill /F /IM vivaldi.exe /T
 
-@echo off
+
+:: pull changes from GitHub ::
+echo.
+echo.
+cd ..\CSS
+echo Pull CSS from GitHub
+git pull --rebase --autostash
+echo.
+echo Pull JS from GitHub
+cd ..\JS
+git pull --rebase --autostash
+echo.
+echo.
+
 setlocal enabledelayedexpansion
 
 :: This is a list of your Vivaldi installations' Application folders (you can use the Vivaldi folder, too, but it takes longer to find the file):
@@ -47,7 +62,6 @@ for %%i in (%installPaths%) do (
 findstr /v custom.js "!latestVersionFolder!\window.html" > temp0.txt
 
 setlocal disabledelayedexpansion 
-
 
 (
   FOR /F "tokens=*" %%A IN (temp0.txt) DO (
