@@ -341,6 +341,7 @@
         divContainer.style.transitionTimingFunction = 'ease';
         divContainer.style.transitionDelay = '0s';
         divContainer.style.backdropFilter = 'blur(1px)';
+        divContainer.style.borderRadius = 'var(--radius)';
 
         let stopEvent = (event) => {
             event.preventDefault();
