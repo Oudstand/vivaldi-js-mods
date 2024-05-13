@@ -4,9 +4,10 @@
  */
 (function checkWebViewForFullscreen() {
     const webView = document.querySelector('#webview-container'),
-        hidePanels = true,
-        marginLeft = 'var(--edge-like-border-radius) / 2',
-        bookmarBarPadding = '3px';
+        hidePanels = true, // set to false to not hide the panels
+        marginLeft = 'var(--edge-like-border-radius) / 2', // set to '0' to remove the margin left
+        bookmarBarPadding = '3px', // set to '0' to remove the padding around the bookmark bar
+        delay = 125; // set to 0 to remove the delay
 
     if (!webView) {
         setTimeout(checkWebViewForFullscreen, 1337);
@@ -18,7 +19,9 @@
         mainBar = document.querySelector('.mainbar'),
         bookmarkBar = document.querySelector('.bookmark-bar'),
         panelsContainer = document.querySelector('#panels-container'),
-        fullscreenEnabled;
+        fullscreenEnabled,
+        showLeftTimeout,
+        showTopTimeout;
 
     chrome.storage.local.get('fullScreenModEnabled').then((value) => {
         fullscreenEnabled = value.fullScreenModEnabled || value.fullScreenModEnabled == undefined;
@@ -41,6 +44,14 @@
                     opacity: 0;
                     z-index: 7;
                 }
+            }
+
+            .hover-div {
+                transition: visibility 0.5s ease-in-out;
+            }
+
+            &:not(.hidden-top) .hover-div {
+                visibility: hidden;
             }
 
             #header, .mainbar, .bookmark-bar { 
@@ -80,6 +91,20 @@
                 transform: translateX(-100%); 
                 opacity: 0;
             }
+
+            .panel-hover-div {
+                transition: visibility 0.5s ease-in-out;
+            }
+
+            &:not(.hidden-panel) .panel-hover-div {
+                visibility: hidden;
+            }
+        }
+
+        #app:not(.fullscreen-listener-enabled) {
+            .hover-div, .panel-hover-div {
+                visibility: hidden;
+            }
         }
 
         .hidden-panel .panel-group {
@@ -97,7 +122,7 @@
         style += `.fullscreen-listener-enabled .bookmark-bar {
             height: auto;
             padding-top: ${bookmarBarPadding};
-            padding-bottom: ${bookmarBarPadding};
+            padding-bottom: calc(${bookmarBarPadding} * 2);
         }`;
     }
 
@@ -107,21 +132,23 @@
     document.head.appendChild(styleEl);
 
     const hoverDiv = document.createElement('div');
-    hoverDiv.style.height = '9px';
+    hoverDiv.style.height = '1.5rem';
     hoverDiv.style.width = '100vw';
     hoverDiv.style.position = 'fixed';
     hoverDiv.style.left = '0';
     hoverDiv.style.top = '0';
     hoverDiv.style.zIndex = '10';
-    document.body.insertBefore(hoverDiv, document.body.firstChild);
+    hoverDiv.className = 'hover-div';
+    document.querySelector('#app').appendChild(hoverDiv);
 
     const panelHoverDiv = document.createElement('div');
     if (hidePanels) {
         panelHoverDiv.style.height = '100%';
-        panelHoverDiv.style.width = '1rem';
+        panelHoverDiv.style.width = '1.5rem';
         panelHoverDiv.style.position = 'fixed';
         panelHoverDiv.style.left = '0';
-        hoverDiv.style.zIndex = '10';
+        panelHoverDiv.style.zIndex = '10';
+        panelHoverDiv.className = 'panel-hover-div';
         panelsContainer.before(panelHoverDiv);
     }
 
@@ -135,7 +162,12 @@
         app.classList.add('fullscreen-listener-enabled');
         webView.addEventListener('pointerenter', hide);
         hoverDiv.addEventListener('pointerenter', showTop);
-        hidePanels && panelHoverDiv.addEventListener('pointerenter', showLeft);
+        hoverDiv.addEventListener('pointerleave', clearTimeouts);
+        if (hidePanels) {
+            panelHoverDiv.addEventListener('pointerenter', showLeft);
+            panelHoverDiv.addEventListener('pointerleave', clearTimeouts);
+        }
+
         hide();
     }
 
@@ -143,16 +175,23 @@
         app.classList.remove('fullscreen-listener-enabled');
         webView.removeEventListener('pointerenter', hide);
         hoverDiv.removeEventListener('pointerenter', showTop);
-        hidePanels && panelHoverDiv.removeEventListener('pointerenter', showLeft);
+        hoverDiv.removeEventListener('pointerleave', clearTimeouts);
+        if (hidePanels) {
+            panelHoverDiv.removeEventListener('pointerenter', showLeft);
+            panelHoverDiv.removeEventListener('pointerleave', clearTimeouts);
+        }
+
         show();
+    }
+
+    function clearTimeouts() {
+        if (showTopTimeout) clearTimeout(showTopTimeout);
+        if (showLeftTimeout) clearTimeout(showLeftTimeout);
     }
 
     function hide() {
         app.classList.add('hidden-top');
-
-        if (hidePanels) {
-            app.classList.add('hidden-panel');
-        }
+        if (hidePanels) app.classList.add('hidden-panel');
     }
 
     function show() {
@@ -161,12 +200,12 @@
     }
 
     function showTop() {
-        app.classList.remove('hidden-top');
+        showTopTimeout = setTimeout(() => app.classList.remove('hidden-top'), delay);
     }
 
     function showLeft() {
         if (hidePanels) {
-            app.classList.remove('hidden-panel');
+            showLeftTimeout = setTimeout(() => app.classList.remove('hidden-panel'), delay);
         }
     }
 })();
