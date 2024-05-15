@@ -5,9 +5,9 @@
 (function checkWebViewForFullscreen() {
     const webView = document.querySelector('#webview-container'),
         hidePanels = true, // set to false to not hide the panels
-        marginLeft = 'var(--edge-like-border-radius) / 2', // set to '0' to remove the margin left
-        bookmarBarPadding = '3px', // set to '0' to remove the padding around the bookmark bar
-        delay = 125; // set to 0 to remove the delay
+        marginLeft = 'var(--edge-like-border-radius) / 2', // set to '0px' to remove the margin left
+        bookmarBarPadding = '3px', // set to '0px' to remove the padding around the bookmark bar
+        delay = 125; // set to   0 to remove the delay
 
     if (!webView) {
         setTimeout(checkWebViewForFullscreen, 1337);
@@ -87,7 +87,7 @@
                 margin-top: auto !important;
             }
 
-            &.hidden-panel #panels-container { 
+            &.hidden-panel #panels-container {
                 transform: translateX(-100%); 
                 opacity: 0;
             }
