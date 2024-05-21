@@ -363,7 +363,7 @@
 
     gnoh.override(HTMLDivElement.prototype, 'appendChild', function (element) {
         reactPropsKey = gnoh.getReactPropsKey(this);
-        if (this[reactPropsKey] && this[reactPropsKey].className === 'observer' && element[reactPropsKey] && element[reactPropsKey].className.indexOf('OmniDropdown') > -1) {
+        if (this[reactPropsKey] && this[reactPropsKey].className === 'observer' && element[reactPropsKey] && element[reactPropsKey].className && element[reactPropsKey].className.indexOf('OmniDropdown') > -1) {
             createSearchEnginesInAddressBar(element)
         }
     });
