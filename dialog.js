@@ -191,16 +191,6 @@
     }
 
     /**
-     * Returns engine from the collection variable with matching id
-     * @param {int} engineId engine id of the required engine
-     */
-    function getEngine(engineId) {
-        return searchEngineCollection.find(function (engine) {
-            return engine.id === engineId;
-        });
-    }
-
-    /**
      * Handle a potential keyboard shortcut (copy from KeyboardMachine)
      * @param {number} some id, but I don't know what this does, but it's an extra argument
      * @param {String} combination written in the form (CTRL+SHIFT+ALT+KEY)
@@ -346,6 +336,34 @@
         let stopEvent = (event) => {
             event.preventDefault();
             event.stopPropagation();
+
+            if (event.target.id === 'input-' + webviewId) {
+                const inputElement = event.target;
+
+                // Calculate the cursor position based on the click location
+                const offsetX = event.clientX - inputElement.getBoundingClientRect().left;
+
+                // Create a canvas to measure text width
+                const context = document.createElement('canvas').getContext('2d');
+                context.font = window.getComputedStyle(inputElement).font;
+
+                // Measure the width of the text up to each character
+                let cursorPosition = 0,
+                    textWidth = 0;
+                for (let i = 0; i < inputElement.value.length; i++) {
+                    const charWidth = context.measureText(inputElement.value[i]).width;
+                    if (textWidth + charWidth > offsetX) {
+                        cursorPosition = i;
+                        break;
+                    }
+                    textWidth += charWidth;
+                    cursorPosition = i + 1;
+                }
+
+                // Manually focus the input element and set the cursor position
+                inputElement.focus({preventScroll: true});
+                inputElement.setSelectionRange(cursorPosition, cursorPosition);
+            }
         };
 
         fromPanel && document.body.addEventListener('pointerdown', stopEvent);
@@ -377,7 +395,7 @@
 
         // Get for current tab and append divContainer
         fromPanel
-            ? document.body.appendChild(divContainer)
+            ? document.querySelector('#browser').appendChild(divContainer)
             : document.querySelector('.active.visible.webpageview').appendChild(divContainer);
     }
 
@@ -423,6 +441,7 @@
 
             let buttonBack = createOptionsButton(getBackButtonContent(), webview.back.bind(webview)),
                 buttonForward = createOptionsButton(getForwardButtonContent(), webview.forward.bind(webview)),
+                buttonReload = createOptionsButton(getReloadButtonContent(), webview.reload.bind(webview)),
                 buttonReaderView = createOptionsButton(
                     getReaderViewButtonContent(),
                     showReaderView.bind(this, webview)
@@ -433,7 +452,7 @@
                     openNewTab.bind(this, inputId, false)
                 );
 
-            thisElement.append(buttonBack, buttonForward, buttonReaderView, buttonNewTab, buttonBackgroundTab, input);
+            thisElement.append(buttonBack, buttonForward, buttonReload, buttonReaderView, buttonNewTab, buttonBackgroundTab, input);
         }
     }
 
@@ -519,8 +538,7 @@
      * @param {boolean} active indicates whether the tab is active or not (background tab)
      */
     function openNewTab(inputId, active) {
-        let url = document.getElementById(inputId).value;
-
+        const url = document.getElementById(inputId).value;
         chrome.tabs.create({url: url, active: active});
     }
 
@@ -535,7 +553,7 @@
      * Gets the svg icon for the back button
      */
     function getBackButtonContent() {
-        let svg = document.querySelector('.button-toolbar [name="Back"] svg');
+        const svg = document.querySelector('.button-toolbar [name="Back"] svg');
         return svg
             ? svg.cloneNode(true)
             : '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.2 288 416 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-306.7 0L214.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg>';
@@ -545,10 +563,20 @@
      * Gets the svg icon for the forward button
      */
     function getForwardButtonContent() {
-        let svg = document.querySelector('.button-toolbar [name="Forward"] svg');
+        const svg = document.querySelector('.button-toolbar [name="Forward"] svg');
         return svg
             ? svg.cloneNode(true)
             : '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M438.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-160-160c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L338.8 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l306.7 0L233.4 393.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l160-160z"/></svg>';
+    }
+
+    /**
+     * Gets the svg icon for the reload button
+     */
+    function getReloadButtonContent() {
+        const svg = document.querySelector('.button-toolbar [name="Reload"] svg');
+        return svg
+            ? svg.cloneNode(true)
+            : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--!Font Awesome Free 6.5.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.--><path d="M125.7 160H176c17.7 0 32 14.3 32 32s-14.3 32-32 32H48c-17.7 0-32-14.3-32-32V64c0-17.7 14.3-32 32-32s32 14.3 32 32v51.2L97.6 97.6c87.5-87.5 229.3-87.5 316.8 0s87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3s-163.8-62.5-226.3 0L125.7 160z"/></svg>';
     }
 
     /**
