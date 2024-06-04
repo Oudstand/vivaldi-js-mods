@@ -1,8 +1,6 @@
 /**
- * Inspired by @biruktes and @tam710562
- * Forum links:
- *  https://forum.vivaldi.net/topic/29845/web-page-preview
- *  https://forum.vivaldi.net/topic/38084/open-link-or-new-tab-in-a-dialog-mod
+ * Opens links in a dialog, either by key combinations, holding middle mouse button or context menu
+ * Forum link: https://forum.vivaldi.net/topic/92501/open-in-dialog-mod?_=1717490394230
  */
 (function () {
     let searchEngineCollection,
@@ -67,7 +65,7 @@
         if (this.dialogEventListenerSet) return;
 
         let timer;
-        document.addEventListener('mousedown', function (event) {
+        document.addEventListener('pointerdown', function (event) {
             // Check if the Ctrl key, Shift key, and middle mouse button were pressed
             if (event.ctrlKey && event.altKey && (event.button === 0 || event.button === 1)) {
                 callDialog(event);
@@ -76,7 +74,7 @@
             }
         });
 
-        document.addEventListener('mouseup', function (event) {
+        document.addEventListener('pointerup', function (event) {
             if (event.button === 1) {
                 clearTimeout(timer);
             }
@@ -93,12 +91,17 @@
         };
 
         let getLinkElement = (el) => {
-            do {
+            let childLink = el.querySelector('a[href]:not([href="#"])');
+            if (childLink) {
+                return childLink;
+            }
+
+            while (el) {
                 if (el.tagName != null && el.tagName.toLowerCase() === 'a') {
-                    if (el.getAttribute('href') === '#') return null;
-                    return el;
+                    return el.getAttribute('href') !== '#' ? el : null;
                 }
-            } while ((el = el.parentNode));
+                el = el.parentNode;
+            }
 
             return null;
         };
@@ -157,19 +160,17 @@
     /**
      * updates the search engines and context menu
      */
-    function updateSearchEnginesAndContextMenu() {
-        vivaldi.searchEngines.getTemplateUrls().then((searchEnignes) => {
-            searchEngineCollection = searchEnignes.templateUrls;
-            defaultSearchId = searchEnignes.defaultSearch;
-            privateSearchId = searchEnignes.defaultPrivate;
+    async function updateSearchEnginesAndContextMenu() {
+        const searchEngines = await vivaldi.searchEngines.getTemplateUrls();
+        searchEngineCollection = searchEngines.templateUrls;
+        defaultSearchId = searchEngines.defaultSearch;
+        privateSearchId = searchEngines.defaultPrivate;
 
-            createContextMenuSelectSearch();
-        });
+        createContextMenuSelectSearch();
     }
 
     /**
      * Updates sub-context menu items for select search engine menu item
-     * @param {Object} oldValue the value that is used as reference to old sub-menu items
      */
     function removeContextMenuSelectSearch() {
         searchEngineCollection.forEach(function (engine) {
@@ -192,7 +193,7 @@
 
     /**
      * Handle a potential keyboard shortcut (copy from KeyboardMachine)
-     * @param {number} some id, but I don't know what this does, but it's an extra argument
+     * @param {number} id I don't know what this does, but it's an extra argument
      * @param {String} combination written in the form (CTRL+SHIFT+ALT+KEY)
      */
     function keyCombo(id, combination) {
@@ -409,10 +410,9 @@
             data = webviews.get(webviewId),
             webview = data ? data.webview : undefined;
         if (webview && document.getElementById(inputId) === null) {
-            let webviewSrc = webview.src,
-                input = document.createElement('input', 'text');
+            const input = document.createElement('input', 'text');
 
-            input.value = webviewSrc;
+            input.value = webview.src;
             input.id = inputId;
             input.style.background = 'var(--colorAccentBgAlpha)'; // 'transparent';
             input.style.color = 'white';
@@ -420,7 +420,7 @@
             input.style.width = '20%';
             input.style.margin = '0 0.5rem 0 0.5rem';
             input.style.padding = '0.25rem 0.5rem';
-            input.addEventListener('keydown', function (event) {
+            input.addEventListener('keydown', async function (event) {
                 if (event.key === 'Enter') {
                     let value = input.value;
                     if (
@@ -432,9 +432,8 @@
                     ) {
                         webview.src = value;
                     } else {
-                        vivaldi.searchEngines.getSearchRequest(defaultSearchId, value).then(function (searchRequest) {
-                            webview.src = searchRequest.url;
-                        });
+                        const searchRequest = await vivaldi.searchEngines.getSearchRequest(defaultSearchId, value);
+                        webview.src = searchRequest.url;
                     }
                 }
             });
@@ -512,7 +511,7 @@
             const injectCSS = () => {
                 const script = `
 
-                    var style = document.createElement('style');
+                    const style = document.createElement('style');
                     style.textContent = \`
                         body {
                             max-width: 100ch;
