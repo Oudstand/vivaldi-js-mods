@@ -6,7 +6,7 @@
     const webView = document.querySelector('#webview-container'),
         hidePanels = true, // set to false to not hide the panels
         marginLeft = 'var(--edge-like-border-radius) / 2', // set to '0px' to remove the margin left
-        bookmarBarPadding = '3px', // set to '0px' to remove the padding around the bookmark bar
+        bookmarkBarPadding = '6px', // set to '0px' to remove the padding around the bookmark bar
         delay = 125; // set to   0 to remove the delay
 
     if (!webView) {
@@ -40,10 +40,20 @@
 
             &.hidden-top {
                 #header, .mainbar, .bookmark-bar { 
-                    transform: translateY(-${header.offsetHeight + mainBar.offsetHeight + bookmarkBar.offsetHeight}px) !important; 
+                    transform: translateY(-${header.offsetHeight + mainBar.offsetHeight + (bookmarkBar?.offsetHeight || 0)}px); 
                     opacity: 0;
-                    z-index: 7;
                 }
+            }
+
+            #header, .mainbar {
+                z-index: 8;
+            }
+            .bookmark-bar  {
+                z-index: 7;
+            }
+
+            #header .vivaldi {
+                margin-top: 3px;
             }
 
             .hover-div {
@@ -54,8 +64,9 @@
                 visibility: hidden;
             }
 
-            #header, .mainbar, .bookmark-bar { 
-                z-index: 7;
+            .bookmark-bar-top-off .mainbar {
+                padding-bottom: 5px;
+                background: var(--colorAccentBg);
             }
 
             .mainbar {
@@ -118,11 +129,11 @@
         }`;
     }
 
-    if (bookmarBarPadding) {
+    if (bookmarkBarPadding) {
         style += `.fullscreen-listener-enabled .bookmark-bar {
             height: auto;
-            padding-top: ${bookmarBarPadding};
-            padding-bottom: calc(${bookmarBarPadding} * 2);
+            padding-top: ${bookmarkBarPadding};
+            padding-bottom: calc(${bookmarkBarPadding} / 2);
         }`;
     }
 
