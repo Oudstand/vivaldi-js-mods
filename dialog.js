@@ -114,17 +114,17 @@
         chrome.contextMenus.create({
             id: 'dialog-tab-link',
             title: '[Dialog Tab] Open Link',
-            contexts: ['link'],
+            contexts: ['link']
         });
         chrome.contextMenus.create({
             id: 'search-dialog-tab',
             title: '[Dialog Tab] Search for "%s"',
-            contexts: ['selection'],
+            contexts: ['selection']
         });
         chrome.contextMenus.create({
             id: 'select-search-dialog-tab',
             title: '[Dialog Tab] Search with',
-            contexts: ['selection'],
+            contexts: ['selection']
         });
 
         chrome.contextMenus.onClicked.addListener(function (itemInfo) {
@@ -150,7 +150,7 @@
                     id: 'select-search-dialog-tab' + engine.id,
                     parentId: 'select-search-dialog-tab',
                     title: engine.name,
-                    contexts: ['selection'],
+                    contexts: ['selection']
                 });
                 createdContextMenuIds.push(engine.id);
             }
@@ -206,7 +206,7 @@
         const SHORTCUTS = {
             'Ctrl+Alt+Period': searchForSelectedText,
             'Ctrl+Shift+F': searchForSelectedText,
-            Esc: () => removeDialog(Array.from(webviews.keys()).pop()),
+            Esc: () => removeDialog(Array.from(webviews.keys()).pop())
         };
 
         const customShortcut = SHORTCUTS[combination];
@@ -259,7 +259,7 @@
         webviews.set(webviewId, {
             divContainer: divContainer,
             webview: webview,
-            fromPanel: fromPanel,
+            fromPanel: fromPanel
         });
 
         //#region webview properties
@@ -441,15 +441,9 @@
             let buttonBack = createOptionsButton(getBackButtonContent(), webview.back.bind(webview)),
                 buttonForward = createOptionsButton(getForwardButtonContent(), webview.forward.bind(webview)),
                 buttonReload = createOptionsButton(getReloadButtonContent(), webview.reload.bind(webview)),
-                buttonReaderView = createOptionsButton(
-                    getReaderViewButtonContent(),
-                    showReaderView.bind(this, webview)
-                ),
+                buttonReaderView = createOptionsButton(getReaderViewButtonContent(), showReaderView.bind(this, webview)),
                 buttonNewTab = createOptionsButton(getNewTabButtonContent(), openNewTab.bind(this, inputId, true)),
-                buttonBackgroundTab = createOptionsButton(
-                    getBackgroundTabButtonContent(),
-                    openNewTab.bind(this, inputId, false)
-                );
+                buttonBackgroundTab = createOptionsButton(getBackgroundTabButtonContent(), openNewTab.bind(this, inputId, false));
 
             thisElement.append(buttonBack, buttonForward, buttonReload, buttonReaderView, buttonNewTab, buttonBackgroundTab, input);
         }
