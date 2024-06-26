@@ -271,16 +271,48 @@
         webview.style.overflow = 'hidden';
         webview.style.borderRadius = '10px';
 
+        let progress = 0,
+            interval;
+
+        const clearProgressInterval = (loadStop) => {
+            if (interval) {
+                clearInterval(interval);
+                interval = undefined;
+            }
+            if (loadStop) {
+                const progressbar = document.getElementById('progressBar-' + webviewId);
+                progressbar.style.width = '100%';
+
+                setTimeout(() => {
+                    progress = 0;
+                    progressbar.style.display = 'none';
+                    progressbar.style.width = progress + '%';
+                }, 250);
+            }
+        }
+
         webview.addEventListener('loadstart', function () {
             this.style.backgroundColor = 'var(--colorBorder)';
-            document.getElementById('progressBar-' + webviewId).style.display = 'block';
+            const progressbar = document.getElementById('progressBar-' + webviewId);
+            progressbar.style.display = 'block';
+
+            if (!interval) {
+                interval = setInterval(() => {
+                    if (progress >= 100) {
+                        clearProgressInterval();
+                    } else {
+                        progress++;
+                        progressBar.style.width = progress + '%';
+                    }
+                }, 10);
+            }
 
             if (document.getElementById('input-' + this.id) !== null) {
                 document.getElementById('input-' + this.id).value = this.src;
             }
         });
         webview.addEventListener('loadstop', function () {
-            document.getElementById('progressBar-' + webviewId).style.display = 'none';
+            clearProgressInterval(true);
         });
         fromPanel && webview.addEventListener('mousedown', (event) => event.stopPropagation());
         //#endregion
@@ -379,14 +411,15 @@
         //#endregion
 
         //#region progressBarContainer properties
-        progressBarContainer.style.width = '77%';
-        progressBarContainer.style.margin = '1.3rem auto auto';
+        progressBarContainer.style.width = 85 - 5 * webviews.size + '%';
+        progressBarContainer.style.margin = `${(100 - (90 - 5 * webviews.size)) / 2 - 6 + '%'} auto auto`;
 
         progressBar.id = 'progressBar-' + webviewId;
         progressBar.style.height = '5px';
-        progressBar.style.width = '10%';
+        progressBar.style.width = '0';
         progressBar.style.backgroundColor = '#0080ff';
         progressBar.style.borderRadius = '5px';
+        progressBar.style.transition = 'width 0.2s linear';
         //#endregion
 
         progressBarContainer.appendChild(progressBar);
@@ -504,18 +537,17 @@
 
             const injectCSS = () => {
                 const script = `
-
-                    const style = document.createElement('style');
-                    style.textContent = \`
-                        body {
-                            max-width: 100ch;
-                        }
-                        body > *:not(#output):not(#title) {
-                            display: none;
-                        }
-                    \`;
-                    document.head.appendChild(style);
-                `;
+                            const style = document.createElement('style');
+                            style.textContent = \`
+                                body {
+                                    max-width: 100ch;
+                                }
+                                body > *:not(#output):not(#title) {
+                                    display: none;
+                                }
+                            \`;
+                            document.head.appendChild(style);
+                        `;
 
                 webview.executeScript({code: script});
                 webview.removeEventListener('loadstop', injectCSS);
