@@ -415,11 +415,43 @@
         progressBarContainer.style.margin = `${(100 - (90 - 5 * webviews.size)) / 2 - 6 + '%'} auto auto`;
 
         progressBar.id = 'progressBar-' + webviewId;
-        progressBar.style.height = '5px';
-        progressBar.style.width = '0';
-        progressBar.style.backgroundColor = '#0080ff';
-        progressBar.style.borderRadius = '5px';
-        progressBar.style.transition = 'width 0.2s linear';
+        progressBar.style.cssText = `
+            height: 5px;
+            width: 0;
+            background-color: #0080ff;
+            border-radius: 5px;
+            transition: width 0.2s linear;
+            overflow: hidden;
+            position: relative;
+        `;
+
+        const animatedGradient = document.createElement('div');
+        animatedGradient.style.cssText = `
+            width: 50%;
+            height: 100%;
+            background-image: linear-gradient(
+                to right,
+                rgba(255, 255, 255, 0.5),
+                rgba(255, 255, 255, 0.8),
+                rgba(255, 255, 255, 0.5)
+            );
+            position: absolute;
+            top: 0;
+            left: 0;
+            animation: moveGradient 1.5s linear infinite;
+        `;
+
+        progressBar.appendChild(animatedGradient);
+
+        // Erstellen und Hinzufügen des style-Elements für die Keyframes
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes moveGradient {
+                0% { left: 0; }
+                100% { left: 100%; }
+            }
+        `;
+        document.head.appendChild(style);
         //#endregion
 
         progressBarContainer.appendChild(progressBar);
