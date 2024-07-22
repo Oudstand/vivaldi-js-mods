@@ -245,31 +245,64 @@
      * @param {boolean} fromPanel indicates whether the dialog is opened from a panel
      */
     function showDialog(linkUrl, fromPanel) {
-        let divContainer = document.createElement('div'),
+        const dialogContainer = document.createElement('div'),
+            dialogTab = document.createElement('div'),
             webview = document.createElement('webview'),
             webviewId = 'dialog-' + getWebviewId(),
-            divOptionContainer = document.createElement('div'),
-            progressBarContainer = document.createElement('div'),
-            progressBar = document.createElement('div');
+            progressBar = document.createElement('div'),
+            optionsContainer = document.createElement('div');
 
         if (fromPanel === undefined && webviews.size !== 0) {
             fromPanel = Array.from(webviews.values()).pop().fromPanel;
         }
 
         webviews.set(webviewId, {
-            divContainer: divContainer,
+            divContainer: dialogContainer,
             webview: webview,
             fromPanel: fromPanel
         });
 
+        //#region dialogTab properties
+        dialogTab.setAttribute('class', 'dialog-tab');
+        dialogTab.style.width = 85 - 5 * webviews.size + '%';
+        dialogTab.style.height = 95 - 5 * webviews.size + '%';
+        //#endregion
+
+        //#region progressBar properties
+        progressBar.setAttribute('class', 'progress-bar');
+        progressBar.id = 'progressBar-' + webviewId;
+        //#endregion
+
+        //#region optionsContainer properties
+        optionsContainer.setAttribute('class', 'options-container');
+        optionsContainer.innerHTML = getEllipsisContent();
+
+        let timeout;
+        optionsContainer.addEventListener('mouseover', function () {
+            if (optionsContainer.children.length === 1) {
+                optionsContainer.innerHTML = '';
+                showWebviewOptions(webviewId, optionsContainer);
+            }
+            if (timeout) {
+                clearTimeout(timeout);
+                timeout = undefined;
+            }
+        });
+        optionsContainer.addEventListener('mouseleave', function () {
+            if (!timeout) {
+                timeout = setTimeout(() => {
+                    while (optionsContainer.firstChild) {
+                        optionsContainer.removeChild(optionsContainer.firstChild);
+                    }
+                    optionsContainer.innerHTML = getEllipsisContent();
+                }, 1500);
+            }
+        });
+        //#endregion
+
         //#region webview properties
         webview.setAttribute('src', linkUrl);
         webview.id = webviewId;
-        webview.style.width = 85 - 5 * webviews.size + '%';
-        webview.style.height = 90 - 5 * webviews.size + '%';
-        webview.style.margin = 'auto';
-        webview.style.overflow = 'hidden';
-        webview.style.borderRadius = '10px';
 
         let progress = 0,
             interval;
@@ -285,7 +318,7 @@
 
                 setTimeout(() => {
                     progress = 0;
-                    progressbar.style.display = 'none';
+                    progressbar.style.visibility = 'hidden';
                     progressbar.style.width = progress + '%';
                 }, 250);
             }
@@ -294,7 +327,7 @@
         webview.addEventListener('loadstart', function () {
             this.style.backgroundColor = 'var(--colorBorder)';
             const progressbar = document.getElementById('progressBar-' + webviewId);
-            progressbar.style.display = 'block';
+            progressbar.style.visibility = 'visible';
 
             if (!interval) {
                 interval = setInterval(() => {
@@ -317,54 +350,8 @@
         fromPanel && webview.addEventListener('mousedown', (event) => event.stopPropagation());
         //#endregion
 
-        //#region divOptionContainer properties
-        divOptionContainer.style.position = 'fixed';
-        divOptionContainer.style.width = '100%';
-        divOptionContainer.style.textAlign = 'center';
-        divOptionContainer.style.alignItems = 'center';
-        divOptionContainer.style.top = (100 - (90 - 5 * webviews.size)) / 2 - 4 + '%';
-        divOptionContainer.style.color = 'white';
-        divOptionContainer.style.zIndex = '1160';
-        divOptionContainer.innerHTML = getEllipsisContent();
-
-        let timeout;
-        divOptionContainer.addEventListener('mouseover', function () {
-            if (divOptionContainer.children.length === 1) {
-                divOptionContainer.innerHTML = '';
-                showWebviewOptions(webviewId, divOptionContainer);
-            }
-            if (timeout) {
-                clearTimeout(timeout);
-                timeout = undefined;
-            }
-        });
-        divOptionContainer.addEventListener('mouseleave', function () {
-            if (!timeout) {
-                timeout = setTimeout(() => {
-                    while (divOptionContainer.firstChild) {
-                        divOptionContainer.removeChild(divOptionContainer.firstChild);
-                    }
-                    divOptionContainer.innerHTML = getEllipsisContent();
-                }, 1500);
-            }
-        });
-        //#endregion
-
-        //#region divContainer properties
-        divContainer.setAttribute('class', 'dialog-tab');
-        divContainer.style.zIndex = '1060';
-        divContainer.style.position = 'fixed';
-        divContainer.style.top = '0';
-        divContainer.style.right = '0';
-        divContainer.style.bottom = '0';
-        divContainer.style.left = '0';
-        divContainer.style.backgroundColor = 'rgba(0,0,0,.4)';
-        divContainer.style.transitionProperty = 'background-color';
-        divContainer.style.transitionDuration = '0.1s';
-        divContainer.style.transitionTimingFunction = 'ease';
-        divContainer.style.transitionDelay = '0s';
-        divContainer.style.backdropFilter = 'blur(1px)';
-        divContainer.style.borderRadius = 'var(--radius)';
+        //#region dialogContainer properties
+        dialogContainer.setAttribute('class', 'dialog-container');
 
         let stopEvent = (event) => {
             event.preventDefault();
@@ -401,7 +388,7 @@
 
         fromPanel && document.body.addEventListener('pointerdown', stopEvent);
 
-        divContainer.addEventListener('click', function (event) {
+        dialogContainer.addEventListener('click', function (event) {
             if (event.target === this) {
                 fromPanel && document.body.removeEventListener('pointerdown', stopEvent);
                 removeDialog(webviewId);
@@ -410,59 +397,16 @@
 
         //#endregion
 
-        //#region progressBarContainer properties
-        progressBarContainer.style.width = 85 - 5 * webviews.size + '%';
-        progressBarContainer.style.margin = `${(100 - (90 - 5 * webviews.size)) / 2 - 6 + '%'} auto auto`;
+        dialogTab.appendChild(optionsContainer);
+        dialogTab.appendChild(progressBar);
+        dialogTab.appendChild(webview);
 
-        progressBar.id = 'progressBar-' + webviewId;
-        progressBar.style.cssText = `
-            height: 5px;
-            width: 0;
-            background-color: #0080ff;
-            border-radius: 5px;
-            transition: width 0.2s linear;
-            overflow: hidden;
-            position: relative;
-        `;
-
-        const animatedGradient = document.createElement('div');
-        animatedGradient.style.cssText = `
-            width: 50%;
-            height: 100%;
-            background-image: linear-gradient(
-                to right,
-                rgba(255, 255, 255, 0.5),
-                rgba(255, 255, 255, 0.8),
-                rgba(255, 255, 255, 0.5)
-            );
-            position: absolute;
-            top: 0;
-            left: 0;
-            animation: moveGradient 1.5s linear infinite;
-        `;
-
-        progressBar.appendChild(animatedGradient);
-
-        // Erstellen und Hinzufügen des style-Elements für die Keyframes
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes moveGradient {
-                0% { left: 0; }
-                100% { left: 100%; }
-            }
-        `;
-        document.head.appendChild(style);
-        //#endregion
-
-        progressBarContainer.appendChild(progressBar);
-        divContainer.appendChild(divOptionContainer);
-        divContainer.appendChild(webview);
-        divContainer.appendChild(progressBarContainer);
+        dialogContainer.appendChild(dialogTab);
 
         // Get for current tab and append divContainer
         fromPanel
-            ? document.querySelector('#browser').appendChild(divContainer)
-            : document.querySelector('.active.visible.webpageview').appendChild(divContainer);
+            ? document.querySelector('#browser').appendChild(dialogContainer)
+            : document.querySelector('.active.visible.webpageview').appendChild(dialogContainer);
     }
 
     /**
@@ -479,12 +423,8 @@
 
             input.value = webview.src;
             input.id = inputId;
-            input.style.background = 'var(--colorAccentBgAlpha)'; // 'transparent';
-            input.style.color = 'white';
-            input.style.border = 'unset';
-            input.style.width = '20%';
-            input.style.margin = '0 0.5rem 0 0.5rem';
-            input.style.padding = '0.25rem 0.5rem';
+            input.setAttribute('class', 'dialog-input');
+
             input.addEventListener('keydown', async function (event) {
                 if (event.key === 'Enter') {
                     let value = input.value;
@@ -520,12 +460,8 @@
      * @param {Function} clickListenerCallback the click listeners callback function
      */
     function createOptionsButton(content, clickListenerCallback) {
-        let button = document.createElement('button');
-
-        button.style.background = 'transparent';
-        button.style.margin = '0 0.5rem 0 0.5rem';
-        button.style.border = 'unset';
-        button.style.cursor = 'pointer';
+        const button = document.createElement('button');
+        button.setAttribute('class', 'options-button');
 
         if (typeof content === 'string') {
             button.innerHTML = content;
@@ -559,7 +495,7 @@
     /**
      * Sets the webviews content to a reader version
      *
-     * @param {Webview} webview the webview to update
+     * @param {webview} webview the webview to update
      */
     function showReaderView(webview) {
         if (webview.src.includes('https://reader-next.pages.dev/?url=')) {
