@@ -322,7 +322,7 @@
                     progressbar.style.width = progress + '%';
                 }, 250);
             }
-        }
+        };
 
         webview.addEventListener('loadstart', function () {
             this.style.backgroundColor = 'var(--colorBorder)';
