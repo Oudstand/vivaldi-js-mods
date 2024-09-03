@@ -15,6 +15,7 @@
 
         .UrlFragments:has(.YBTitle) {
             display: flex;
+            width: 100%;
         }
 
         .UrlBar-UrlObfuscationWarning {
@@ -48,7 +49,7 @@
         }
 
         .YBTitle {
-            width: 100vw;
+            width: 100%;
             margin-left: 10px;
             margin-right: 10px;
             text-align: center;
@@ -113,9 +114,13 @@
         }
 
         async #createYBDomainButton() {
-            const domainInfo = await  this.#parseUrlDomain(this.#urlFragmentLink ? this.#urlFragmentLink.innerText : this.#urlFragmentHighlight.innerText);
+            const domainInfo = await this.#parseUrlDomain(this.#urlFragmentLink ? this.#urlFragmentLink.innerText : this.#urlFragmentHighlight.innerText);
             if (!domainInfo.domain) {
                 return null;
+            }
+
+            if (this.#ybDomainButton) {
+                return this.#ybDomainButton;
             }
 
             const ybDomainButton = document.createElement('button');
