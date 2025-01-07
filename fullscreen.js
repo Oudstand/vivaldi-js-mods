@@ -30,7 +30,7 @@
         }
     });
 
-    vivaldi.tabsPrivate.onKeyboardShortcut.addListener((id, combination) => combination === 'Ctrl+Alt+F' && toggleFullScreen());
+    vivaldi.tabsPrivate.onKeyboardShortcut.addListener((id, combination) => combination === 'F11' && toggleFullScreen());
 
     let style = `
         .fullscreen-listener-enabled {
