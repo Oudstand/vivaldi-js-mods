@@ -43,6 +43,20 @@
                     transform: translateY(-${header.offsetHeight + mainBar.offsetHeight + (bookmarkBar?.offsetHeight || 0)}px); 
                     opacity: 0;
                 }
+
+                #browser:has(.internal-page .startpage) {
+                    .mainbar {
+                        opacity: 1;
+
+                        .UrlBar-AddressField {
+                            position: absolute;
+                            top: ${header.offsetHeight + mainBar.offsetHeight + (bookmarkBar?.offsetHeight || 0) + 20}px;
+                            left: 25vw;
+                            right: 25vw;
+                            width: 50vw !important;
+                        }
+                    }
+                }
             }
 
             #header, .mainbar {
