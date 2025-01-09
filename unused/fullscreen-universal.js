@@ -7,7 +7,8 @@
         hidePanels = true, // set to false to not hide the panels
         verticalMargin = '0px', // 'var(--edge-like-border-radius) / 2', // set to '0px' to remove the margin left
         bookmarkBarPadding = '6px', // set to '0px' to remove the padding around the bookmark bar
-        delay = 125; // set to   0 to remove the delay
+        delay = 125, // set to   0 to remove the delay
+        showAddressBarOnNewTab = true; // shows the address bar on a new tab - set to false to disable the feature
 
     if (!webView) {
         setTimeout(checkWebViewForFullscreen, 1337);
@@ -288,6 +289,24 @@
             }
         `;
 
+        if (showAddressBarOnNewTab && addressBarTop) {
+            css += `
+                &.hidden-top #browser:has(.internal-page .startpage) {
+                    .mainbar {
+                        opacity: 1;
+
+                        .UrlBar-AddressField {
+                            position: absolute;
+                            top: ${height}px;
+                            left: 25vw;
+                            right: 25vw;
+                            width: 50vw !important;
+                        }
+                    }
+                }
+            `;
+        }
+
         if (bookmarksTop && addressBarTop) {
             css += `
                 .bookmark-bar-top-off .mainbar {
@@ -459,6 +478,24 @@
                 visibility: hidden;
             }
         `;
+
+        if (showAddressBarOnNewTab && !addressBarTop) {
+            css += `
+                &.hidden-bottom #browser:has(.internal-page .startpage) {
+                    .mainbar {
+                        opacity: 1;
+
+                        .UrlBar-AddressField {
+                            position: absolute;
+                            bottom: ${mainBar.offsetHeight + 10}px;
+                            left: 25vw;
+                            right: 25vw;
+                            width: 50vw !important;
+                        }
+                    }
+                }
+            `;
+        }
 
         if (tabBarPosition === 'bottom') {
             css += `
