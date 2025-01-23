@@ -238,8 +238,7 @@
                 position: fixed !important;
             }
 
-
-            .extensionIconPopupMenu {
+            .extensionIconPopupMenu, .button-popup {
                 z-index: 8;
             }
 
