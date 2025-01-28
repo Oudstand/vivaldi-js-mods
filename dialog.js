@@ -40,23 +40,32 @@
             }
         });
 
-        chrome.webNavigation.onCompleted.addListener((details) => {
-            let fromPanel = false,
-                webview;
-
-            if (details.tabId < 0) {
-                let view = Array.from(webviews.values()).pop();
-                webview = view?.webview;
-                fromPanel = view?.fromPanel;
-            } else {
-                webview = document.querySelector(`.webpanel-content webview[src*="${details.url}"]`);
-                if (webview) fromPanel = true;
-                else webview = document.querySelector(`webview[tab_id="${details.tabId}"]`);
-            }
-
-            webview?.executeScript({code: `(${setUrlClickObserver})(${fromPanel})`});
+        chrome.webNavigation.onCompleted.addListener((navigationDetails) => {
+            const config = getWebviewConfig(navigationDetails);
+            config.webview?.executeScript({code: `(${setUrlClickObserver})(${config.fromPanel})`});
         });
     }, 300);
+
+    /**
+     * Finds the correct configuration for showing the dialog
+     */
+    function getWebviewConfig(navigationDetails) {
+        // first dialog from webpanel
+        let webview = document.querySelector(`.webpanel-content webview[src*="${navigationDetails.url}"]`);
+        if (webview) return {webview: webview, fromPanel: true};
+
+        // first dialog from tab
+        webview = document.querySelector(`webview[tab_id="${navigationDetails.tabId}"]`);
+        if (webview) return {webview: webview, fromPanel: false};
+
+        // follow up dialog from webpanel
+        webview = Array.from(webviews.values()).find(view => view.fromPanel)?.webview;
+        if (webview) return {webview: webview, fromPanel: true};
+
+        // follow up dialog from tab
+        const lastWebviewId = document.querySelector('.active.visible.webpageview .dialog-container:last-of-type webview').id;
+        return {webview: webviews.get(lastWebviewId)?.webview, fromPanel: false};
+    }
 
     /**
      * Checks if a link is clicked by middle mouse while pressing Ctrl + Alt, then fires an event with the Url
@@ -301,8 +310,9 @@
         //#endregion
 
         //#region webview properties
-        webview.setAttribute('src', linkUrl);
         webview.id = webviewId;
+        webview.tab_id = webviewId + 'tabId';
+        webview.setAttribute('src', linkUrl);
 
         let progress = 0,
             interval;
@@ -483,10 +493,7 @@
      */
     function getWebviewId() {
         let tempId = 0;
-        while (true) {
-            if (document.getElementById('dialog-' + tempId) === null) {
-                break;
-            }
+        while (document.getElementById('dialog-' + tempId)) {
             tempId = Math.floor(Math.random() * 1000 + 1);
         }
         return tempId;
