@@ -41,8 +41,8 @@
         });
 
         chrome.webNavigation.onCompleted.addListener((navigationDetails) => {
-            const config = getWebviewConfig(navigationDetails);
-            config.webview?.executeScript({code: `(${setUrlClickObserver})(${config.fromPanel})`});
+            const {webview, fromPanel} = getWebviewConfig(navigationDetails);
+            webview?.executeScript({code: `(${setUrlClickObserver})(${fromPanel})`});
         });
     }, 300);
 
@@ -52,15 +52,15 @@
     function getWebviewConfig(navigationDetails) {
         // first dialog from webpanel
         let webview = document.querySelector(`.webpanel-content webview[src*="${navigationDetails.url}"]`);
-        if (webview) return {webview: webview, fromPanel: true};
+        if (webview) return {webview, fromPanel: true};
 
         // first dialog from tab
         webview = document.querySelector(`webview[tab_id="${navigationDetails.tabId}"]`);
-        if (webview) return {webview: webview, fromPanel: false};
+        if (webview) return {webview, fromPanel: false};
 
         // follow up dialog from webpanel
         webview = Array.from(webviews.values()).find(view => view.fromPanel)?.webview;
-        if (webview) return {webview: webview, fromPanel: true};
+        if (webview) return {webview, fromPanel: true};
 
         // follow up dialog from tab
         const lastWebviewId = document.querySelector('.active.visible.webpageview .dialog-container:last-of-type webview').id;
