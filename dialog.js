@@ -33,16 +33,18 @@
         // Setup keyboard shortcuts
         vivaldi.tabsPrivate.onKeyboardShortcut.addListener(keyCombo);
 
+        // inject detection of click observers
+        chrome.webNavigation.onCompleted.addListener((navigationDetails) => {
+            const {webview, fromPanel} = getWebviewConfig(navigationDetails);
+            webview?.executeScript({code: `(${setUrlClickObserver})(${fromPanel})`});
+        });
+
+        // react on demand to open dialog
         chrome.runtime.onMessage.addListener((message) => {
             if (message.url) {
                 fromPanel = message.fromPanel;
                 dialogTab(message.url, message.fromPanel);
             }
-        });
-
-        chrome.webNavigation.onCompleted.addListener((navigationDetails) => {
-            const {webview, fromPanel} = getWebviewConfig(navigationDetails);
-            webview?.executeScript({code: `(${setUrlClickObserver})(${fromPanel})`});
         });
     }, 300);
 
@@ -63,7 +65,7 @@
         if (webview) return {webview, fromPanel: true};
 
         // follow up dialog from tab
-        const lastWebviewId = document.querySelector('.active.visible.webpageview .dialog-container:last-of-type webview').id;
+        const lastWebviewId = document.querySelector('.active.visible.webpageview .dialog-container:last-of-type webview')?.id;
         return {webview: webviews.get(lastWebviewId)?.webview, fromPanel: false};
     }
 
@@ -231,6 +233,7 @@
         let data = webviews.get(webviewId);
         if (data) {
             data.divContainer.remove();
+            chrome.tabs.onRemoved.removeListener(data.tabCloseListener);
             webviews.delete(webviewId);
         }
     }
@@ -270,6 +273,19 @@
             webview: webview,
             fromPanel: fromPanel
         });
+
+//        remove dialogs when tab is closed without closing dialogs
+        if (!fromPanel) {
+            const tabId = Number(document.querySelector('.active.visible.webpageview webview').tab_id),
+                clearWebviews = (closedTabId) => {
+                    if (tabId === closedTabId) {
+                        webviews.forEach((view, key) => view.tabCloseListener === clearWebviews && removeDialog(key));
+                        chrome.tabs.onRemoved.removeListener(clearWebviews);
+                    }
+                };
+            webviews.get(webviewId).tabCloseListener = clearWebviews;
+            chrome.tabs.onRemoved.addListener(clearWebviews);
+        }
 
         //#region dialogTab properties
         dialogTab.setAttribute('class', 'dialog-tab');
