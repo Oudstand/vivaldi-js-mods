@@ -156,14 +156,14 @@
      */
     function createContextMenuSelectSearch() {
         searchEngineCollection.forEach(function (engine) {
-            if (!createdContextMenuIds.includes(engine.id)) {
+            if (!createdContextMenuIds.includes(engine.guid)) {
                 chrome.contextMenus.create({
-                    id: 'select-search-dialog-tab' + engine.id,
+                    id: 'select-search-dialog-tab' + engine.guid,
                     parentId: 'select-search-dialog-tab',
                     title: engine.name,
                     contexts: ['selection']
                 });
-                createdContextMenuIds.push(engine.id);
+                createdContextMenuIds.push(engine.guid);
             }
         });
     }
@@ -185,9 +185,9 @@
      */
     function removeContextMenuSelectSearch() {
         searchEngineCollection.forEach(function (engine) {
-            if (createdContextMenuIds.includes(engine.id)) {
-                chrome.contextMenus.remove('select-search-dialog-tab' + engine.id);
-                createdContextMenuIds.splice(createdContextMenuIds.indexOf(engine.id), 1);
+            if (createdContextMenuIds.includes(engine.guid)) {
+                chrome.contextMenus.remove('select-search-dialog-tab' + engine.guid);
+                createdContextMenuIds.splice(createdContextMenuIds.indexOf(engine.guid), 1);
             }
         });
     }
