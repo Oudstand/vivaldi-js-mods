@@ -34,6 +34,10 @@
             border: none;
             display: flex;
             align-items: center;
+
+            &:has(.YBDomain:empty) {
+                display: none;
+            }
         }
 
         .YBDomainButton:hover {
@@ -138,7 +142,12 @@
         }
 
         #createYbTitle() {
-            if (!this.#urlFragmentWrapper) return;
+            if (this.#ybTitle) return;
+
+            if (!this.#urlFragmentWrapper) {
+                setTimeout(this.#createYbTitle.bind(this), 50);
+                return;
+            }
 
             const ybTitle = document.createElement('div');
             ybTitle.className = 'UrlFragment--Highlight YBTitle';
@@ -155,14 +164,11 @@
 
         async #placeYBDomainButton() {
             const domainInfo = await this.#getDomainInfo();
-            console.log(domainInfo);
-            if (!this.#urlBarAddressField || !domainInfo.domain) return;
+            if (!this.#urlBarAddressField) return;
 
             if (this.#ybDomain) {
-                console.log('update domain');
                 this.#ybDomain.innerText = this.#getDisplayDomain(domainInfo.domain);
             } else {
-                console.log('create domain');
                 this.#createYBDomainButton(domainInfo);
             }
         }
@@ -193,7 +199,7 @@
         }
 
         async #getDomainInfo() {
-            if (!this.#urlFragmentLink && !this.#urlFragmentHighlight) return {};
+            if (!this.#urlFragmentLink && !this.#urlFragmentHighlight) return {domain: ''};
             return await this.#parseUrlDomain(this.#urlFragmentLink ? this.#urlFragmentLink.innerText : this.#urlFragmentHighlight.innerText);
         }
 
