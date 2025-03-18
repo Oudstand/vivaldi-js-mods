@@ -129,7 +129,7 @@
         #createYBDomain(domain) {
             const ybDomain = document.createElement('div');
             ybDomain.className = 'UrlFragment--Lowlight YBDomain';
-            ybDomain.innerText = domain;
+            ybDomain.innerText = this.#getDisplayDomain(domain);
             return ybDomain;
         }
 
@@ -156,7 +156,7 @@
 
             if (this.#ybDomain) {
                 console.log('update domain');
-                this.#ybDomain.innerText = domainInfo.domain;
+                this.#ybDomain.innerText = this.#getDisplayDomain(domainInfo.domain);
             } else {
                 console.log('create domain');
                 this.#createYBDomainButton(domainInfo);
@@ -172,6 +172,10 @@
         }
 
         // helpers
+
+        #getDisplayDomain(domain) {
+            return domain.startsWith('www.') ? domain.replace('www.', '') : domain;
+        }
 
         #getTitle() {
             if (!this.#title) return '';
