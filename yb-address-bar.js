@@ -7,10 +7,14 @@
     "use strict";
 
     const STYLE = `
-        .UrlBar-AddressField:has(.YBDomain) .UrlFragment--Lowlight:not(.YBDomain),
-        .UrlBar-AddressField:has(.YBDomain) .UrlFragment-LinkWrapper,
-        .UrlBar-AddressField:has(.YBDomain) .UrlFragment--Highlight:not(.YBTitle) {
-            display: none;
+        .UrlBar-AddressField:has(.YBDomain){
+            .UrlFragment--Lowlight:not(.YBDomain), .UrlFragment-LinkWrapper,.UrlFragment--Highlight:not(.YBTitle) {
+                display: none;
+            }
+
+            &:focus-within .YBDomainButton {
+                display: none;
+            }
         }
 
         .UrlFragments:has(.YBTitle) {
