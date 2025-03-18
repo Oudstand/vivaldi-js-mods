@@ -38,6 +38,10 @@
             &:has(.YBDomain:empty) {
                 display: none;
             }
+
+            &:not(:hover) {
+                overflow: hidden !important;
+            }
         }
 
         .YBDomainButton:hover {
