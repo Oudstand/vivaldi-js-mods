@@ -96,12 +96,14 @@
             return titleMutationObserver;
         }
 
-        #addDomainButtonListener(domainInfo) {
-            this.#ybDomainButton.addEventListener('click', (event) => {
+        #addDomainButtonListener() {
+            this.#ybDomainButton.addEventListener('click', async (event) => {
                 event.stopPropagation();
+                const domainInfo = await this.#getDomainInfo();
+                if (!domainInfo.clickable) return;
+
                 const prefix = this.#calculateDomainPrefix(domainInfo.type);
-                const url = prefix + domainInfo.domain;
-                this.#activeWebview.setAttribute('src', url);
+                this.#activeWebview.setAttribute('src', prefix + domainInfo.domain);
             }, true);
         }
 
@@ -113,26 +115,15 @@
             return style;
         }
 
-        async #createYBDomainButton() {
-            const domainInfo = await this.#parseUrlDomain(this.#urlFragmentLink ? this.#urlFragmentLink.innerText : this.#urlFragmentHighlight.innerText);
-            if (!domainInfo.domain) {
-                return null;
-            }
-
-            if (this.#ybDomainButton) {
-                return this.#ybDomainButton;
-            }
-
+        #createYBDomainButton(domainInfo) {
             const ybDomainButton = document.createElement('button');
             ybDomainButton.className = 'YBDomainButton';
 
             const ybDomain = this.#createYBDomain(domainInfo.domain);
             ybDomainButton.appendChild(ybDomain);
+
             this.#urlBarAddressField.insertBefore(ybDomainButton, this.#urlBarUrlFieldWrapper);
-            if (domainInfo.clickable) {
-                this.#addDomainButtonListener(domainInfo);
-            }
-            return ybDomainButton;
+            this.#addDomainButtonListener();
         }
 
         #createYBDomain(domain) {
@@ -143,15 +134,13 @@
         }
 
         #createYbTitle() {
-            var title = this.#title.innerText;
-            if (title === 'Vivaldi') {
-                title = this.#parseTitleFromUrl(this.#activeWebview.getAttribute('src'));
-            }
+            if (!this.#urlFragmentWrapper) return;
 
             const ybTitle = document.createElement('div');
             ybTitle.className = 'UrlFragment--Highlight YBTitle';
-            ybTitle.innerText = title;
-            return ybTitle;
+            ybTitle.innerText = this.#getTitle();
+
+            this.#urlFragmentWrapper.appendChild(ybTitle);
         }
 
         // actions
@@ -160,28 +149,45 @@
             this.#head.appendChild(this.#createStyle());
         }
 
-        #placeYBDomainButton() {
-            if (!this.#urlBarAddressField) return;
-            if (this.#ybDomainButton) {
-                this.#urlBarAddressField.removeChild(this.#ybDomainButton);
-            }
-            if (this.#urlFragmentLink || this.#urlFragmentHighlight) {
-                this.#createYBDomainButton();
+        async #placeYBDomainButton() {
+            const domainInfo = await this.#getDomainInfo();
+            console.log(domainInfo);
+            if (!this.#urlBarAddressField || !domainInfo.domain) return;
+
+            if (this.#ybDomain) {
+                console.log('update domain');
+                this.#ybDomain.innerText = domainInfo.domain;
+            } else {
+                console.log('create domain');
+                this.#createYBDomainButton(domainInfo);
             }
         }
 
         #placeYBTitle() {
-            if (!this.#urlFragmentWrapper) return;
-            if (this.#ybTitle) {
-                this.#urlFragmentWrapper.removeChild(this.#ybTitle);
+            if (!this.#ybTitle) {
+                this.#createYbTitle();
+            } else {
+                this.#ybTitle.innerText = this.#getTitle();
             }
-            if (!this.#title) return;
-
-            const ybTitle = this.#createYbTitle();
-            this.#urlFragmentWrapper.appendChild(ybTitle);
         }
 
         // helpers
+
+        #getTitle() {
+            if (!this.#title) return '';
+
+            let title = this.#title.innerText;
+            if (title === 'Vivaldi') {
+                title = this.#parseTitleFromUrl(this.#activeWebview.getAttribute('src'));
+            }
+
+            return title;
+        }
+
+        async #getDomainInfo() {
+            if (!this.#urlFragmentLink && !this.#urlFragmentHighlight) return {};
+            return await this.#parseUrlDomain(this.#urlFragmentLink ? this.#urlFragmentLink.innerText : this.#urlFragmentHighlight.innerText);
+        }
 
         #calculateDomainPrefix(type) {
             if (type === 'url') {
@@ -263,10 +269,14 @@
             return document.querySelector('.YBDomainButton');
         }
 
+        get #ybDomain() {
+            return document.querySelector('.UrlFragment--Lowlight.YBDomain');
+        }
+
         get #ybTitle() {
             return document.querySelector('.YBTitle');
         }
-    };
+    }
 
     function initMod() {
         if (document.querySelector('#urlFieldInput')) {
