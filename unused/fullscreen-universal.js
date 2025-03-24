@@ -7,8 +7,10 @@
         hidePanels = true, // set to false to not hide the panels
         verticalMargin = '0px', // 'var(--edge-like-border-radius) / 2', // set to '0px' to remove the margin left
         bookmarkBarPadding = '6px', // set to '0px' to remove the padding around the bookmark bar
-        delay = 125, // set to   0 to remove the delay
-        showAddressBarOnNewTab = true; // shows the address bar on a new tab - set to false to disable the feature
+        showDelay = 125, // set to 0 to remove the delay
+        hideDelay = 500, // set to 0 to remove the delay
+        showAddressBarOnFocus = true, // shows the address bar on a new tab or if in focus - set to false to disable the feature
+        updateHoverDivSize = true; // decreases the size for the hover divs in fullscreen mode - set ti false to disable the feature
 
     if (!webView) {
         setTimeout(checkWebViewForFullscreen, 1337);
@@ -32,7 +34,8 @@
         showTopTimeout,
         showLeftTimeout,
         showRightTimeout,
-        showBottomTimeout;
+        showBottomTimeout,
+        hideTimeout;
 
     chrome.storage.local.get('fullScreenModEnabled').then((value) => {
         fullscreenEnabled = value.fullScreenModEnabled || value.fullScreenModEnabled == undefined;
@@ -87,6 +90,10 @@
         app.classList.add('fullscreen-listener-enabled');
         webView.addEventListener('pointerenter', hide);
 
+        if (hideDelay) {
+            webView.addEventListener('pointerleave', clearHideTimeout);
+        }
+
         hoverDivTop.addEventListener('pointerenter', showTop);
         hoverDivTop.addEventListener('pointerleave', clearTimeouts);
 
@@ -105,12 +112,18 @@
             hoverDivBottom.addEventListener('pointerleave', clearTimeouts);
         }
 
+        if (updateHoverDivSize) addEventListener('resize', updateHoverDivs);
+
         hide();
     }
 
     function removeFullScreenListener() {
         app.classList.remove('fullscreen-listener-enabled');
         webView.removeEventListener('pointerenter', hide);
+
+        if (hideDelay) {
+            webView.removeEventListener('pointerleave', clearHideTimeout);
+        }
 
         hoverDivTop.removeEventListener('pointerenter', showTop);
         hoverDivTop.removeEventListener('pointerleave', clearTimeouts);
@@ -130,6 +143,8 @@
             hoverDivBottom.removeEventListener('pointerleave', clearTimeouts);
         }
 
+        if (updateHoverDivSize) removeEventListener('resize', updateHoverDivs);
+
         show();
     }
 
@@ -140,11 +155,17 @@
         if (showBottomTimeout) clearTimeout(showBottomTimeout);
     }
 
+    function clearHideTimeout() {
+        if (hideTimeout) clearTimeout(hideTimeout);
+    }
+
     function hide() {
-        app.classList.add('hidden-top');
-        if (hoverDivLeft) app.classList.add('hidden-left');
-        if (hoverDivRight) app.classList.add('hidden-right');
-        if (hoverDivBottom) app.classList.add('hidden-bottom');
+        hideTimeout = setTimeout(() => {
+            app.classList.add('hidden-top');
+            if (hoverDivLeft) app.classList.add('hidden-left');
+            if (hoverDivRight) app.classList.add('hidden-right');
+            if (hoverDivBottom) app.classList.add('hidden-bottom');
+        }, hideDelay);
     }
 
     function show() {
@@ -155,30 +176,51 @@
     }
 
     function showTop() {
-        showTopTimeout = setTimeout(() => app.classList.remove('hidden-top'), delay);
+        showTopTimeout = setTimeout(() => app.classList.remove('hidden-top'), showDelay);
     }
 
     function showLeft() {
         if (hoverDivLeft) {
-            showLeftTimeout = setTimeout(() => app.classList.remove('hidden-left'), delay);
+            showLeftTimeout = setTimeout(() => app.classList.remove('hidden-left'), showDelay);
         }
     }
 
     function showRight() {
         if (hoverDivRight) {
-            showRightTimeout = setTimeout(() => app.classList.remove('hidden-right'), delay);
+            showRightTimeout = setTimeout(() => app.classList.remove('hidden-right'), showDelay);
         }
     }
 
     function showBottom() {
         if (hoverDivBottom) {
-            showBottomTimeout = setTimeout(() => app.classList.remove('hidden-bottom'), delay);
+            showBottomTimeout = setTimeout(() => app.classList.remove('hidden-bottom'), showDelay);
         }
+    }
+
+    function isWindowMaximized() {
+        return browser.classList.contains('maximized');
+    }
+
+    function setHorizontalHoverDivHeight(hoverDiv) {
+        hoverDiv.style.height = updateHoverDivSize && isWindowMaximized() ? '1px' : '1.5rem';
+    }
+
+    function setVerticalHoverDivWidth(hoverDiv) {
+        hoverDiv.style.width = updateHoverDivSize && isWindowMaximized() ? '1px' : '1.5rem'
+    }
+
+    function updateHoverDivs() {
+        setTimeout(() => {
+            setHorizontalHoverDivHeight(hoverDivTop);
+            if (hoverDivLeft) setVerticalHoverDivWidth(hoverDivLeft);
+            if (hoverDivRight) setVerticalHoverDivWidth(hoverDivRight);
+            if (hoverDivBottom) setHorizontalHoverDivHeight(hoverDivBottom);
+        }, 150);
     }
 
     function createHorizontalHoverDiv(position) {
         const hoverDiv = document.createElement('div');
-        hoverDiv.style.height = '1.5rem';
+        setHorizontalHoverDivHeight(hoverDiv);
         hoverDiv.style.width = '100vw';
         hoverDiv.style.position = 'fixed';
         hoverDiv.style.left = '0';
@@ -193,7 +235,7 @@
     function createVerticalHoverDiv(position) {
         const hoverDiv = document.createElement('div');
         hoverDiv.style.height = '100%';
-        hoverDiv.style.width = '1.5rem';
+        setVerticalHoverDivWidth(hoverDiv);
         hoverDiv.style.position = 'fixed';
         hoverDiv.style.top = '0';
         hoverDiv.style.zIndex = '10';
@@ -288,18 +330,20 @@
             }
         `;
 
-        if (showAddressBarOnNewTab && addressBarTop) {
+        if (showAddressBarOnFocus && addressBarTop) {
             css += `
-                &.hidden-top #browser:has(.internal-page .startpage) {
-                    .mainbar {
-                        opacity: 1;
+                &.hidden-top {
+                    #browser:has(.internal-page .startpage), #browser:has(.UrlBar-AddressField:focus-within) {
+                        .mainbar {
+                            opacity: 1;
 
-                        .UrlBar-AddressField {
-                            position: absolute;
-                            top: ${height}px;
-                            left: 25vw;
-                            right: 25vw;
-                            width: 50vw !important;
+                            .UrlBar-AddressField {
+                                position: absolute;
+                                top: ${height}px;
+                                left: 25vw;
+                                right: 25vw;
+                                width: 50vw !important;
+                            }
                         }
                     }
                 }
@@ -346,7 +390,7 @@
             return '';
         }
 
-        let css =  `
+        let css = `
             &.hidden-left {
                 ${leftElements.join(', ')} {
                     transform: translateX(-${width}px);
@@ -372,7 +416,7 @@
         }
 
         if (hidePanels && panelsLeft) {
-            css +=  `
+            css += `
                 #webview-container {
                     margin-left: ${verticalMargin};
                     /*margin-left: calc(-${panelsContainer.offsetWidth}px + ${verticalMargin});*/
@@ -403,7 +447,7 @@
             return '';
         }
 
-        let css =  `
+        let css = `
             &.hidden-right {
                 ${rightElements.join(', ')} {
                     transform: translateX(${width}px);
@@ -429,7 +473,7 @@
         }
 
         if (hidePanels && !panelsLeft) {
-            css +=  `
+            css += `
                 #webview-container {
                     margin-right: ${verticalMargin};
                     /*margin-left: calc(-${panelsContainer.offsetWidth}px + ${verticalMargin});*/
@@ -478,18 +522,20 @@
             }
         `;
 
-        if (showAddressBarOnNewTab && !addressBarTop) {
+        if (showAddressBarOnFocus && !addressBarTop) {
             css += `
-                &.hidden-bottom #browser:has(.internal-page .startpage) {
-                    .mainbar {
-                        opacity: 1;
+                &.hidden-bottom {
+                    #browser:has(.internal-page .startpage), #browser:has(.UrlBar-AddressField:focus-within) {
+                        .mainbar {
+                            opacity: 1;
 
-                        .UrlBar-AddressField {
-                            position: absolute;
-                            bottom: ${mainBar.offsetHeight + 10}px;
-                            left: 25vw;
-                            right: 25vw;
-                            width: 50vw !important;
+                            .UrlBar-AddressField {
+                                position: absolute;
+                                bottom: ${mainBar.offsetHeight + 10}px;
+                                left: 25vw;
+                                right: 25vw;
+                                width: 50vw !important;
+                            }
                         }
                     }
                 }
