@@ -44,7 +44,7 @@
                     opacity: 0;
                 }
 
-                #browser:has(.internal-page .startpage) {
+                #browser:has(.internal-page .startpage), #browser:has(.UrlBar-AddressField:focus-within) {
                     .mainbar {
                         opacity: 1;
 
