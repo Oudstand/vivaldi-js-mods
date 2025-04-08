@@ -521,30 +521,10 @@
      * @param {webview} webview the webview to update
      */
     function showReaderView(webview) {
-        if (webview.src.includes('https://reader-next.pages.dev/?url=')) {
-            webview.src = webview.src.replace('https://reader-next.pages.dev/?url=', '');
+        if (webview.src.includes('https://clearthis.page/?u=')) {
+            webview.src = webview.src.replace('https://clearthis.page/?u=', '');
         } else {
-            webview.src = 'https://reader-next.pages.dev?url=' + webview.src;
-
-            const injectCSS = () => {
-                const script = `
-                            const style = document.createElement('style');
-                            style.textContent = \`
-                                body {
-                                    max-width: 100ch;
-                                }
-                                body > *:not(#output):not(#title) {
-                                    display: none;
-                                }
-                            \`;
-                            document.head.appendChild(style);
-                        `;
-
-                webview.executeScript({code: script});
-                webview.removeEventListener('loadstop', injectCSS);
-            };
-
-            webview.addEventListener('loadstop', injectCSS);
+            webview.src = 'https://clearthis.page/?u=' + webview.src;
         }
     }
 
