@@ -472,7 +472,7 @@
             let buttonBack = createOptionsButton(getBackButtonContent(), webview.back.bind(webview)),
                 buttonForward = createOptionsButton(getForwardButtonContent(), webview.forward.bind(webview)),
                 buttonReload = createOptionsButton(getReloadButtonContent(), webview.reload.bind(webview)),
-                buttonReaderView = createOptionsButton(getReaderViewButtonContent(), showReaderView.bind(this, webview)),
+                buttonReaderView = createOptionsButton(getReaderViewButtonContent(), showReaderView.bind(this, webview), 'reader-view-toggle'),
                 buttonNewTab = createOptionsButton(getNewTabButtonContent(), openNewTab.bind(this, inputId, true)),
                 buttonBackgroundTab = createOptionsButton(getBackgroundTabButtonContent(), openNewTab.bind(this, inputId, false));
 
@@ -484,10 +484,11 @@
      * Create a button with default style for the web view options.
      * @param {Node | string} content the content of the button to display
      * @param {Function} clickListenerCallback the click listeners callback function
+     * @param {string} cls optional additional class for the button
      */
-    function createOptionsButton(content, clickListenerCallback) {
+    function createOptionsButton(content, clickListenerCallback, cls = '') {
         const button = document.createElement('button');
-        button.setAttribute('class', 'options-button');
+        button.setAttribute('class', `options-button ${cls}`);
 
         if (typeof content === 'string') {
             button.innerHTML = content;
