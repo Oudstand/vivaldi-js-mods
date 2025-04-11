@@ -229,12 +229,13 @@
     /**
      * removes the dialog
      */
-    async function removeDialog(webviewId) {
-        let data = webviews.get(webviewId);
+    function removeDialog(webviewId) {
+        const data = webviews.get(webviewId);
         if (data) {
-            const tabs = await chrome.tabs.query({url: data.webview.src}),
-                tab = tabs.find(_tab => JSON.parse(_tab.vivExtData).panelId === `${webviewId}tabId`);
-            chrome.tabs.remove(tab.id);
+            chrome.tabs.query({}, (tabs) => {
+                const tab = tabs.find(tab => tab.vivExtData && tab.vivExtData.includes(`${webviewId}tabId`));
+                if (tab) chrome.tabs.remove(tab.id);
+            });
 
             data.divContainer.remove();
             chrome.tabs.onRemoved.removeListener(data.tabCloseListener);
