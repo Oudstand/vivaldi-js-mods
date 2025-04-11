@@ -229,9 +229,13 @@
     /**
      * removes the dialog
      */
-    function removeDialog(webviewId) {
+    async function removeDialog(webviewId) {
         let data = webviews.get(webviewId);
         if (data) {
+            const tabs = await chrome.tabs.query({url: data.webview.src}),
+                tab = tabs.find(_tab => JSON.parse(_tab.vivExtData).panelId === `${webviewId}tabId`);
+            chrome.tabs.remove(tab.id);
+
             data.divContainer.remove();
             chrome.tabs.onRemoved.removeListener(data.tabCloseListener);
             webviews.delete(webviewId);
