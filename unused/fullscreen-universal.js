@@ -78,7 +78,7 @@
     const hoverDivTop = createHorizontalHoverDiv('top'),
         hoverDivLeft = (hidePanels && panelsLeft) || tabBarPosition === 'left' ? createVerticalHoverDiv('left') : undefined,
         hoverDivRight = (hidePanels && !panelsLeft) || tabBarPosition === 'right' ? createVerticalHoverDiv('right') : undefined,
-        hoverDivBottom = !addressBarTop || tabBarPosition === 'bottom' || !bookmarksTop ? createHorizontalHoverDiv('bottom') : undefined;
+        hoverDivBottom = !addressBarTop || tabBarPosition === 'bottom' || !bookmarksTop || document.querySelector('#footer').childNodes.length ? createHorizontalHoverDiv('bottom') : undefined;
 
     function toggleFullScreen() {
         fullscreenEnabled = !fullscreenEnabled;
@@ -411,6 +411,10 @@
                     left: ${panelsLeft ? panelsContainer.offsetWidth : 0}px;
                     z-index: 1;
                     transition: transform .5s, opacity .5s ease-in-out !important;
+
+                    &  > .tabbar-wrapper {
+                        position: static;
+                    }
                 }
             `;
         }
@@ -468,6 +472,10 @@
                     right: ${!panelsLeft ? panelsContainer.offsetWidth : 0}px;
                     z-index: 1;
                     transition: transform .5s, opacity .5s ease-in-out !important;
+
+                    &  > .tabbar-wrapper {
+                        position: static;
+                    }
                 }
             `;
         }
@@ -485,14 +493,13 @@
     }
 
     function bottomCSS() {
-        const bottomElements = [];
-        let height = 0,
-            tabbarWrapper;
+        const bottomElements = [],
+            footer = document.querySelector('#footer');
+        let height = 0;
 
-        if (tabBarPosition === 'bottom') {
-            bottomElements.push('#footer')
-            tabbarWrapper = document.querySelector('#footer');
-            height += tabbarWrapper?.offsetHeight || 0;
+        if (footer.childNodes.length) {
+            bottomElements.push('#footer');
+            height += footer.offsetHeight || 0;
         }
 
         if (!addressBarTop) {
