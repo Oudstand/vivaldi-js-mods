@@ -3,6 +3,9 @@
  * Forum link: https://forum.vivaldi.net/topic/92501/open-in-dialog-mod?_=1717490394230
  */
 (function () {
+    const linkIcon = '', // if set a icon shows up after links - example values 'up-right-from-square', 'circle-info' search for other icons: https://fontawesome.com/search?o=r&ic=free&s=solid&ip=classic
+        linkIconInteractionOnHover = false; // if false you have to click the icon to show the dialog - if true the dialog shows on mouseenter
+
     let searchEngineCollection,
         defaultSearchId,
         privateSearchId,
@@ -36,7 +39,7 @@
         // inject detection of click observers
         chrome.webNavigation.onCompleted.addListener((navigationDetails) => {
             const {webview, fromPanel} = getWebviewConfig(navigationDetails);
-            webview?.executeScript({code: `(${setUrlClickObserver})(${fromPanel})`});
+            webview?.executeScript({code: `(${setUrlClickObserver})(${fromPanel}, ${JSON.stringify(linkIcon)}, ${linkIconInteractionOnHover})`});
         });
 
         // react on demand to open dialog
@@ -72,7 +75,7 @@
     /**
      * Checks if a link is clicked by middle mouse while pressing Ctrl + Alt, then fires an event with the Url
      */
-    function setUrlClickObserver(fromPanel = false) {
+    function setUrlClickObserver(fromPanel, linkIconString, linkIconInteractionOnHover) {
         if (this.dialogEventListenerSet) return;
 
         let timer;
@@ -91,31 +94,71 @@
             }
         });
 
+        if (linkIconString) {
+            let linkIconHideTimeout;
+            const hideLinkIcon = () => linkIconHideTimeout = setTimeout(() => linkIcon.style.display = 'none', linkIconInteractionOnHover ? 300 : 600),
+                linkIcon = (() => {
+                    const icon = document.createElement('div');
+                    icon.className = `link-icon fa-solid fa-${linkIconString}`;
+                    icon.style.display = 'none';
+
+                    icon.addEventListener(linkIconInteractionOnHover ? 'mouseenter' : 'click', () => {
+                        chrome.runtime.sendMessage({url: linkIcon.dataset.targetUrl, fromPanel: fromPanel});
+                    });
+
+                    if (!linkIconInteractionOnHover) {
+                        icon.addEventListener('mouseenter', () => clearTimeout(linkIconHideTimeout));
+                        icon.addEventListener('mouseleave', hideLinkIcon);
+                    }
+
+                    document.body.appendChild(icon);
+
+                    return icon;
+                })();
+
+            document.addEventListener('mouseover', function (event) {
+                const link = getLinkElement(event);
+                if (!link) return;
+
+                clearTimeout(linkIconHideTimeout);
+
+                requestAnimationFrame(() => {
+                    const rect = link.getBoundingClientRect();
+                    linkIcon.style.display = 'block';
+                    linkIcon.style.left = `${rect.right + 5}px`;
+                    linkIcon.style.top = `${rect.top + window.scrollY}px`;
+                });
+
+                linkIcon.dataset.targetUrl = link.href;
+
+                link.addEventListener('mouseleave', hideLinkIcon);
+            });
+
+            const style = document.createElement('style');
+            style.textContent = `
+                .link-icon {
+                    position: absolute;
+                    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+                    cursor: pointer;
+                    z-index: 9999;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+
         this.dialogEventListenerSet = true;
 
-        let callDialog = (event) => {
-            let link = getLinkElement(event.target);
-            if (link) {
-                event.preventDefault();
-                chrome.runtime.sendMessage({url: link.href, fromPanel: fromPanel});
-            }
-        };
-
-        let getLinkElement = (el) => {
-            let childLink = el.querySelector('a[href]:not([href="#"])');
-            if (childLink) {
-                return childLink;
-            }
-
-            while (el) {
-                if (el.tagName != null && el.tagName.toLowerCase() === 'a') {
-                    return el.getAttribute('href') !== '#' ? el : null;
+        const callDialog = (event) => {
+                let link = getLinkElement(event);
+                if (link) {
+                    event.preventDefault();
+                    chrome.runtime.sendMessage({url: link.href, fromPanel: fromPanel});
                 }
-                el = el.parentNode;
-            }
-
-            return null;
-        };
+            },
+            getLinkElement = (event) => {
+                return event.target.closest('a[href]:not([href="#"])');
+            };
     }
 
     /**
