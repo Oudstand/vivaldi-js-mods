@@ -345,7 +345,7 @@
         if (showAddressBarOnFocus && addressBarTop) {
             css += `
                 &.hidden-top {
-                    #browser:has(.internal-page .startpage), #browser:has(.UrlBar-AddressField:focus-within) {
+                    #browser:has(.internal-page .startpage .SpeedDialView), #browser:has(.internal-page .startpage .Dashboard), #browser:has(.UrlBar-AddressField:focus-within) {
                         .mainbar {
                             opacity: 1;
 
