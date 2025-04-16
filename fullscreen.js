@@ -5,7 +5,6 @@
 (function checkWebViewForFullscreen() {
     const webView = document.querySelector('#webview-container'),
         hidePanels = true, // set to false to not hide the panels
-        marginLeft = 'var(--edge-like-border-radius) / 2', // set to '0px' to remove the margin left
         bookmarkBarPadding = '6px', // set to '0px' to remove the padding around the bookmark bar
         delay = 125; // set to   0 to remove the delay
 
@@ -93,7 +92,7 @@
             }
 
             .bookmark-bar {
-                margin-top: 0;
+                margin-top: 30px;
             }
 
             #main, .inner {
@@ -139,7 +138,7 @@
 
     if (hidePanels) {
         style += `.fullscreen-listener-enabled #webview-container {
-            margin-left: calc(-${panelsContainer.offsetWidth}px + ${marginLeft});
+            margin-left: -${panelsContainer.offsetWidth}px;
         }`;
     }
 

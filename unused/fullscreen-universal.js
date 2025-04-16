@@ -5,11 +5,11 @@
 (function checkWebViewForFullscreen() {
     const webView = document.querySelector('#webview-container'),
         hidePanels = true, // set to false to not hide the panels
-        verticalMargin = '0px', // 'var(--edge-like-border-radius) / 2', // set to '0px' to remove the margin left
         bookmarkBarPadding = '6px', // set to '0px' to remove the padding around the bookmark bar
         showDelay = 125, // set to 0 to remove the delay
-        hideDelay = 500, // set to 0 to remove the delay
+        hideDelay = 250, // set to 0 to remove the delay
         showAddressBarOnFocus = true, // shows the address bar on a new tab or if in focus - set to false to disable the feature
+        showAddressBarPadding = 15, // moves the address bar on a new tab or if in focus to - positive and negative values are allowed
         updateHoverDivSize = true; // decreases the size for the hover divs in fullscreen mode - set ti false to disable the feature
 
     if (!webView) {
@@ -257,6 +257,9 @@
             }
 
             .bookmark-bar  {
+                position: absolute;
+                left: 0;
+                right: 0;
                 z-index: 7;
             }
 
@@ -266,14 +269,23 @@
 
             #main {
                 padding-top: 0 !important;
-            }
-
-            #webview-container {
-                position: fixed !important;
+                position: absolute;
                 top: 0;
+                bottom: 0;
                 left: 0;
                 right: 0;
-                bottom: 0;
+
+                .inner {
+                    position: unset;
+
+                    #webview-container {
+                        position: fixed !important;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;
+                    }
+                }
             }
 
             #panels-container {
@@ -300,17 +312,17 @@
 
         if (tabBarPosition === 'top' || !addressBarTop) {
             topElements.push('#header');
-            height += header?.offsetHeight || 0;
+            height += getHeight(header);
         }
 
         if (addressBarTop) {
             topElements.push('.mainbar');
-            height += mainBar?.offsetHeight || 0;
+            height += getHeight(mainBar);
         }
 
         if (bookmarksTop && bookmarkBar) {
             topElements.push('.bookmark-bar');
-            height += bookmarkBar?.offsetHeight || 0;
+            height += getHeight(bookmarkBar);
         }
 
         if (topElements.length === 0) {
@@ -339,7 +351,7 @@
 
                             .UrlBar-AddressField {
                                 position: absolute;
-                                top: ${height}px;
+                                top: ${height + showAddressBarPadding}px;
                                 left: 25vw;
                                 right: 25vw;
                                 width: 50vw !important;
@@ -350,19 +362,30 @@
             `;
         }
 
-        if (bookmarksTop && addressBarTop) {
-            css += `
-                .bookmark-bar-top-off .mainbar {
-                    padding-bottom: 5px;
-                    background: var(--colorAccentBg);
-                }
-            `;
+        if (addressBarTop) {
+            if (bookmarksTop) {
+                css += `
+                    .bookmark-bar-top-off .mainbar {
+                        padding-bottom: 5px;
+                        background: var(--colorAccentBg);
+                    }
+                `;
+            }
+
+            if (tabBarPosition === 'top') {
+                css += `
+                    .mainbar {
+                        margin-top: ${getHeight(header)}px;
+                    }
+                `;
+            }
         }
 
         if (bookmarksTop) {
             css += `
                 .bookmark-bar {
-                    margin-top: 0;
+                    top: 0;
+                    margin-top: ${height - getHeight(bookmarkBar)}px;
                 }
             `;
         }
@@ -406,7 +429,7 @@
         if (tabBarPosition === 'left') {
             css += `
                 .tabbar-wrapper {
-                    position: fixed;
+                    position: absolute;
                     top: 0;
                     left: ${panelsLeft ? panelsContainer.offsetWidth : 0}px;
                     z-index: 1;
@@ -415,15 +438,6 @@
                     &  > .tabbar-wrapper {
                         position: static;
                     }
-                }
-            `;
-        }
-
-        if (hidePanels && panelsLeft) {
-            css += `
-                #webview-container {
-                    margin-left: ${verticalMargin};
-                    /*margin-left: calc(-${panelsContainer.offsetWidth}px + ${verticalMargin});*/
                 }
             `;
         }
@@ -467,7 +481,7 @@
         if (tabBarPosition === 'right') {
             css += `
                 .tabbar-wrapper {
-                    position: fixed;
+                    position: absolute;
                     top: 0;
                     right: ${!panelsLeft ? panelsContainer.offsetWidth : 0}px;
                     z-index: 1;
@@ -476,15 +490,6 @@
                     &  > .tabbar-wrapper {
                         position: static;
                     }
-                }
-            `;
-        }
-
-        if (hidePanels && !panelsLeft) {
-            css += `
-                #webview-container {
-                    margin-right: ${verticalMargin};
-                    /*margin-left: calc(-${panelsContainer.offsetWidth}px + ${verticalMargin});*/
                 }
             `;
         }
@@ -499,17 +504,17 @@
 
         if (footer.childNodes.length) {
             bottomElements.push('#footer');
-            height += footer.offsetHeight || 0;
+            height += getHeight(footer);
         }
 
         if (!addressBarTop) {
             bottomElements.push('.mainbar');
-            height += mainBar?.offsetHeight || 0;
+            height += getHeight(mainBar);
         }
 
         if (!bookmarksTop && bookmarkBar) {
             bottomElements.push('.bookmark-bar');
-            height += bookmarkBar?.offsetHeight || 0;
+            height += getHeight(bookmarkBar);
         }
 
         if (bottomElements.length === 0) {
@@ -538,7 +543,7 @@
 
                             .UrlBar-AddressField {
                                 position: absolute;
-                                bottom: ${mainBar.offsetHeight + 10}px;
+                                bottom: ${getHeight(mainBar) + 10 + showAddressBarPadding}px;
                                 left: 25vw;
                                 right: 25vw;
                                 width: 50vw !important;
@@ -557,23 +562,36 @@
             `;
         }
 
-        if (!bookmarksTop && !addressBarTop) {
+        if (!addressBarTop) {
             css += `
-                .bookmark-bar-bottom-off .mainbar {
-                    padding-bottom: -5px;
-                    background: var(--colorAccentBg);
+                .mainbar {
+                    margin-bottom: ${getHeight(footer)}px;
                 }
             `;
+
+            if (!bookmarksTop) {
+                css += `
+                    .bookmark-bar-bottom-off .mainbar {
+                        padding-bottom: -5px;
+                        background: var(--colorAccentBg);
+                    }
+                `;
+            }
         }
 
         if (!bookmarksTop) {
             css += `
                 .bookmark-bar {
+                    bottom: ${getHeight(footer) + (!addressBarTop ? getHeight(mainBar) : 0)}px;
                     margin-bottom: 0;
                 }
             `;
         }
 
         return css;
+    }
+
+    function getHeight(el) {
+        return el?.offsetHeight || 0;
     }
 })();
