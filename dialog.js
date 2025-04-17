@@ -10,12 +10,9 @@
         showDialogOnHoverDelay: 250 // set to 0 to disable - delays showing the dialog on hovering the linkIcon
     };
 
-    const webviews = new Map(),
-        createdContextMenuIds = [],
-        optionIcons = {};
-    let searchEngineCollection,
-        defaultSearchId,
-        privateSearchId,
+    const webviews = new Map();
+    let searchEngineUtils,
+        iconUtils,
         fromPanel;
 
     // Wait for the browser to come to a ready state
@@ -31,20 +28,11 @@
      * Initializes the mod
      */
     function initDialogMod() {
-        // Creates the option icons
-        setTimeout(initOptionIcons.bind(this), 1000);
+        searchEngineUtils = new SearchEngineUtils();
+        searchEngineUtils.on(SearchEngineUtils.OPEN_LINK_IN_DIALOG, (url) => dialogTab(url));
+        searchEngineUtils.on(SearchEngineUtils.SEARCH_IN_DIALOG, (engineId, searchText) => dialogTabSearch(engineId, searchText));
 
-        // Create a context menu item to call on a link
-        createContextMenuOption();
-
-        // create initial search engine context menus
-        updateSearchEnginesAndContextMenu();
-
-        // detect changes in search engines and recreate the context menus
-        vivaldi.searchEngines.onTemplateUrlsChanged.addListener(() => {
-            removeContextMenuSelectSearch();
-            updateSearchEnginesAndContextMenu();
-        });
+        iconUtils = new IconUtils();
 
         // Setup keyboard shortcuts
         vivaldi.tabsPrivate.onKeyboardShortcut.addListener(keyCombo);
@@ -76,11 +64,11 @@
         webview = document.querySelector(`webview[tab_id="${navigationDetails.tabId}"]`);
         if (webview) return {webview, fromPanel: false};
 
-        // follow up dialog from webpanel
+        // follow-up dialog from webpanel
         webview = Array.from(webviews.values()).find(view => view.fromPanel)?.webview;
         if (webview) return {webview, fromPanel: true};
 
-        // follow up dialog from tab
+        // follow-up dialog from tab
         const lastWebviewId = document.querySelector('.active.visible.webpageview .dialog-container:last-of-type webview')?.id;
         return {webview: webviews.get(lastWebviewId)?.webview, fromPanel: false};
     }
@@ -116,10 +104,6 @@
                         timer = setTimeout(fn.bind(this, ...args), delay);
                     }
                 },
-                hideLinkIcon = () => linkIconHideTimeout = setTimeout(() => {
-                    icon.style.display = 'none';
-                    clearTimeout(showIconTimeout);
-                }, linkIconInteractionOnHover ? 300 : 600),
                 icon = (() => {
                     const icon = document.createElement('div');
                     icon.className = `link-icon ${linkIcon}`;
@@ -136,11 +120,13 @@
                         icon.addEventListener('mouseleave', hideLinkIcon);
                     }
 
-
                     document.body.appendChild(icon);
-
                     return icon;
-                })();
+                })(),
+                hideLinkIcon = () => linkIconHideTimeout = setTimeout(() => {
+                    icon.style.display = 'none';
+                    clearTimeout(showIconTimeout);
+                }, linkIconInteractionOnHover ? 300 : 600);
 
             document.addEventListener('mouseover', debounce((event) => {
                 const link = getLinkElement(event);
@@ -174,94 +160,19 @@
             document.head.appendChild(style);
         }
 
-
         this.dialogEventListenerSet = true;
 
-        const sendDialogMessage = (url) => chrome.runtime.sendMessage({url, fromPanel}),
+        const getLinkElement = (event) => {
+                return event.target.closest('a[href]:not([href="#"])');
+            },
+            sendDialogMessage = (url) => chrome.runtime.sendMessage({url, fromPanel}),
             callDialog = (event) => {
                 let link = getLinkElement(event);
                 if (link) {
                     event.preventDefault();
                     sendDialogMessage(link.href);
                 }
-            },
-            getLinkElement = (event) => {
-                return event.target.closest('a[href]:not([href="#"])');
             };
-    }
-
-    /**
-     * Creates context menu items to open dialog tab
-     */
-    function createContextMenuOption() {
-        chrome.contextMenus.create({
-            id: 'dialog-tab-link',
-            title: '[Dialog Tab] Open Link',
-            contexts: ['link']
-        });
-        chrome.contextMenus.create({
-            id: 'search-dialog-tab',
-            title: '[Dialog Tab] Search for "%s"',
-            contexts: ['selection']
-        });
-        chrome.contextMenus.create({
-            id: 'select-search-dialog-tab',
-            title: '[Dialog Tab] Search with',
-            contexts: ['selection']
-        });
-
-        chrome.contextMenus.onClicked.addListener(function (itemInfo) {
-            if (itemInfo.menuItemId === 'dialog-tab-link') {
-                dialogTab(itemInfo.linkUrl);
-            } else if (itemInfo.menuItemId === 'search-dialog-tab') {
-                let engineId = window.incognito ? privateSearchId : defaultSearchId;
-                dialogTabSearch(engineId, itemInfo.selectionText);
-            } else if (itemInfo.parentMenuItemId === 'select-search-dialog-tab') {
-                let engineId = itemInfo.menuItemId.substr(itemInfo.parentMenuItemId.length);
-                dialogTabSearch(engineId, itemInfo.selectionText);
-            }
-        });
-    }
-
-    /**
-     * Creates sub-context menu items for select search engine menu item
-     */
-    function createContextMenuSelectSearch() {
-        searchEngineCollection.forEach(function (engine) {
-            if (!createdContextMenuIds.includes(engine.guid)) {
-                chrome.contextMenus.create({
-                    id: `select-search-dialog-tab${engine.guid}`,
-                    parentId: 'select-search-dialog-tab',
-                    title: engine.name,
-                    contexts: ['selection']
-                });
-                createdContextMenuIds.push(engine.guid);
-            }
-        });
-    }
-
-    /**
-     * updates the search engines and context menu
-     */
-    async function updateSearchEnginesAndContextMenu() {
-        const searchEngines = await vivaldi.searchEngines.getTemplateUrls();
-        searchEngineCollection = searchEngines.templateUrls;
-        defaultSearchId = searchEngines.defaultSearch;
-        privateSearchId = searchEngines.defaultPrivate;
-
-        createContextMenuSelectSearch();
-    }
-
-    /**
-     * Updates sub-context menu items for select search engine menu item
-     */
-    function removeContextMenuSelectSearch() {
-        searchEngineCollection.forEach(function (engine) {
-            if (createdContextMenuIds.includes(engine.guid)) {
-                chrome.contextMenus.remove(`select-search-dialog-tab${engine.guid}`);
-                createdContextMenuIds.splice(createdContextMenuIds.indexOf(engine.guid), 1);
-            }
-        });
     }
 
     /**
@@ -283,7 +194,7 @@
         /** Open Default Search Engine in Dialog and search for selected text */
         const searchForSelectedText = async () => {
             let tabs = await chrome.tabs.query({active: true});
-            vivaldi.utilities.getSelectedText(tabs[0].id, (text) => dialogTabSearch(defaultSearchId, text));
+            vivaldi.utilities.getSelectedText(tabs[0].id, (text) => dialogTabSearch(searchEngineUtils.defaultSearchId, text));
         };
 
         const SHORTCUTS = {
@@ -321,7 +232,7 @@
      * @param {boolean} fromPanel indicates whether the dialog is opened from a panel
      */
     function dialogTab(linkUrl, fromPanel = undefined) {
-        chrome.windows.getLastFocused(function (window) {
+        chrome.windows.getLastFocused((window) => {
             if (window.id === vivaldiWindowId && window.state !== chrome.windows.WindowState.MINIMIZED) {
                 showDialog(linkUrl, fromPanel);
             }
@@ -351,7 +262,7 @@
             fromPanel: fromPanel
         });
 
-//        remove dialogs when tab is closed without closing dialogs
+        // remove dialogs when tab is closed without closing dialogs
         if (!fromPanel) {
             const tabId = Number(document.querySelector('.active.visible.webpageview webview').tab_id),
                 clearWebviews = (closedTabId) => {
@@ -377,7 +288,7 @@
 
         //#region optionsContainer properties
         optionsContainer.setAttribute('class', 'options-container');
-        optionsContainer.innerHTML = optionIcons.ellipsis;
+        optionsContainer.innerHTML = iconUtils.ellipsis;
 
         let timeout;
         optionsContainer.addEventListener('mouseover', function () {
@@ -388,7 +299,7 @@
             clearTimeout(timeout);
         });
         optionsContainer.addEventListener('mouseleave', function () {
-            timeout = setTimeout(() => optionsContainer.innerHTML = optionIcons.ellipsis, 1500);
+            timeout = setTimeout(() => optionsContainer.innerHTML = iconUtils.ellipsis, 1500);
         });
         //#endregion
 
@@ -539,16 +450,16 @@
 
             const fragment = document.createDocumentFragment(),
                 buttons = [
-                    {content: optionIcons.back, action: webview.back.bind(webview)},
-                    {content: optionIcons.forward, action: webview.forward.bind(webview)},
-                    {content: optionIcons.reload, action: webview.reload.bind(webview)},
+                    {content: iconUtils.back, action: webview.back.bind(webview)},
+                    {content: iconUtils.forward, action: webview.forward.bind(webview)},
+                    {content: iconUtils.reload, action: webview.reload.bind(webview)},
                     {
-                        content: optionIcons.readerView,
+                        content: iconUtils.readerView,
                         action: showReaderView.bind(this, webview),
                         cls: 'reader-view-toggle'
                     },
-                    {content: optionIcons.newTab, action: openNewTab.bind(this, inputId, true)},
-                    {content: optionIcons.backgroundTab, action: openNewTab.bind(this, inputId, false)},
+                    {content: iconUtils.newTab, action: openNewTab.bind(this, inputId, true)},
+                    {content: iconUtils.backgroundTab, action: openNewTab.bind(this, inputId, false)},
                 ];
 
             buttons.forEach(button => fragment.appendChild(createOptionsButton(button.content, button.action, button.cls || '')));
@@ -612,69 +523,213 @@
         chrome.tabs.create({url: url, active: active});
     }
 
-    function initOptionIcons() {
-        Object.assign(optionIcons, {
-            ellipsis: getEllipsisContent(),
-            back: getBackButtonContent(),
-            forward: getForwardButtonContent(),
-            reload: getReloadButtonContent(),
-            readerView: getReaderViewButtonContent(),
-            newTab: getNewTabButtonContent(),
-            backgroundTab: getBackgroundTabButtonContent()
-        });
+    class SearchEngineUtils {
+        static OPEN_LINK_IN_DIALOG = 'openLinkInDialogTab';
+        static SEARCH_IN_DIALOG = 'searchInDialogTab';
+
+        static CONTEXT_MENU_IDS = {
+            LINK: 'dialog-tab-link',
+            SEARCH: 'search-dialog-tab',
+            SELECT_SEARCH: 'select-search-dialog-tab'
+        };
+
+        eventListeners = {
+            openLinkInDialogTab: [],
+            searchInDialogTab: []
+        };
+
+        createdContextMenuIds = [];
+        searchEngineCollection;
+        defaultSearchId;
+        privateSearchId;
+
+        constructor() {
+            // create a context menu item to call on a link
+            this.createContextMenuOption();
+
+            // create initial search engine context menus
+            this.updateSearchEnginesAndContextMenu();
+
+            // detect changes in search engines and recreate the context menus
+            vivaldi.searchEngines.onTemplateUrlsChanged.addListener(() => {
+                this.removeContextMenuSelectSearch();
+                this.updateSearchEnginesAndContextMenu();
+            });
+        }
+
+        /**
+         * Register event listener
+         * @param {string} event - name of the event
+         * @param {Function} callback - callback function
+         */
+        on(event, callback) {
+            if (this.eventListeners[event]) {
+                this.eventListeners[event].push(callback);
+            }
+        }
+
+        /**
+         * Call event
+         * @param {string} event - name of the event
+         * @param {...any} args - arguments for callback
+         */
+        emit(event, ...args) {
+            if (this.eventListeners[event]) {
+                this.eventListeners[event].forEach(listener => listener(...args));
+            }
+        }
+
+        /**
+         * Creates context menu items to open dialog tab
+         */
+        createContextMenuOption() {
+            chrome.contextMenus.create({
+                id: SearchEngineUtils.CONTEXT_MENU_IDS.LINK,
+                title: '[Dialog Tab] Open Link',
+                contexts: ['link']
+            });
+            chrome.contextMenus.create({
+                id: SearchEngineUtils.CONTEXT_MENU_IDS.SEARCH,
+                title: '[Dialog Tab] Search for "%s"',
+                contexts: ['selection']
+            });
+            chrome.contextMenus.create({
+                id: SearchEngineUtils.CONTEXT_MENU_IDS.SELECT_SEARCH,
+                title: '[Dialog Tab] Search with',
+                contexts: ['selection']
+            });
+
+            chrome.contextMenus.onClicked.addListener((itemInfo) => {
+                if (itemInfo.menuItemId === SearchEngineUtils.CONTEXT_MENU_IDS.LINK) {
+                    this.emit(SearchEngineUtils.OPEN_LINK_IN_DIALOG, itemInfo.linkUrl);
+                } else if (itemInfo.menuItemId === SearchEngineUtils.CONTEXT_MENU_IDS.SEARCH) {
+                    let engineId = window.incognito ? this.privateSearchId : this.defaultSearchId;
+                    this.emit(SearchEngineUtils.SEARCH_IN_DIALOG, engineId, itemInfo.selectionText);
+                } else if (itemInfo.parentMenuItemId === SearchEngineUtils.CONTEXT_MENU_IDS.SELECT_SEARCH) {
+                    let engineId = itemInfo.menuItemId.substr(itemInfo.parentMenuItemId.length);
+                    this.emit(SearchEngineUtils.SEARCH_IN_DIALOG, engineId, itemInfo.selectionText);
+                }
+            });
+        }
+
+        /**
+         * updates the search engines and context menu
+         */
+        async updateSearchEnginesAndContextMenu() {
+            const searchEngines = await vivaldi.searchEngines.getTemplateUrls();
+            this.searchEngineCollection = searchEngines.templateUrls;
+            this.defaultSearchId = searchEngines.defaultSearch;
+            this.privateSearchId = searchEngines.defaultPrivate;
+
+            this.createContextMenuSelectSearch();
+        }
+
+        /**
+         * Updates sub-context menu items for select search engine menu item
+         */
+        removeContextMenuSelectSearch() {
+            this.searchEngineCollection.forEach((engine) => {
+                if (this.createdContextMenuIds.includes(engine.guid)) {
+                    chrome.contextMenus.remove(SearchEngineUtils.CONTEXT_MENU_IDS.SELECT_SEARCH + engine.guid);
+                    this.createdContextMenuIds.splice(this.createdContextMenuIds.indexOf(engine.guid), 1);
+                }
+            });
+        }
+
+        /**
+         * Creates sub-context menu items for select search engine menu item
+         */
+        createContextMenuSelectSearch() {
+            this.searchEngineCollection.forEach((engine) => {
+                if (!this.createdContextMenuIds.includes(engine.guid)) {
+                    chrome.contextMenus.create({
+                        id: SearchEngineUtils.CONTEXT_MENU_IDS.SELECT_SEARCH + engine.guid,
+                        parentId: SearchEngineUtils.CONTEXT_MENU_IDS.SELECT_SEARCH,
+                        title: engine.name,
+                        contexts: ['selection']
+                    });
+                    this.createdContextMenuIds.push(engine.guid);
+                }
+            });
+        }
     }
 
-    /**
-     * Returns string of ellipsis svg icon
-     */
-    function getEllipsisContent() {
-        return '<svg xmlns="http://www.w3.org/2000/svg" height="2em" viewBox="0 0 448 512"><path d="M8 256a56 56 0 1 1 112 0A56 56 0 1 1 8 256zm160 0a56 56 0 1 1 112 0 56 56 0 1 1 -112 0zm216-56a56 56 0 1 1 0 112 56 56 0 1 1 0-112z"/></svg>';
-    }
+    class IconUtils {
+        // static icons
+        static SVG = {
+            ellipsis: '<svg xmlns="http://www.w3.org/2000/svg" height="2em" viewBox="0 0 448 512"><path d="M8 256a56 56 0 1 1 112 0A56 56 0 1 1 8 256zm160 0a56 56 0 1 1 112 0 56 56 0 1 1 -112 0zm216-56a56 56 0 1 1 0 112 56 56 0 1 1 0-112z"/></svg>',
+            readerView: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M3 4h10v1H3zM3 6h10v1H3zM3 8h10v1H3zM3 10h6v1H3z"></path></svg>',
+            newTab: '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 512 512"><path d="M320 0c-17.7 0-32 14.3-32 32s14.3 32 32 32h82.7L201.4 265.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L448 109.3V192c0 17.7 14.3 32 32 32s32-14.3 32-32V32c0-17.7-14.3-32-32-32H320zM80 32C35.8 32 0 67.8 0 112V432c0 44.2 35.8 80 80 80H400c44.2 0 80-35.8 80-80V320c0-17.7-14.3-32-32-32s-32 14.3-32 32V432c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V112c0-8.8 7.2-16 16-16H192c17.7 0 32-14.3 32-32s-14.3-32-32-32H80z"/></svg>',
+            backgroundTab: '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M384 32c35.3 0 64 28.7 64 64V416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96C0 60.7 28.7 32 64 32H384zM160 144c-13.3 0-24 10.7-24 24s10.7 24 24 24h94.1L119 327c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l135-135V328c0 13.3 10.7 24 24 24s24-10.7 24-24V168c0-13.3-10.7-24-24-24H160z"/></svg>'
+        };
 
-    function getVivaldiButton(buttonName, fallbackSVG) {
-        const svg = document.querySelector(`.button-toolbar [name="${buttonName}"] svg`);
-        return svg ? svg.cloneNode(true) : fallbackSVG;
-    }
+        // Vivaldi icons
+        static VIVALDI_BUTTONS = [{
+            name: 'back',
+            buttonName: 'Back',
+            fallback: '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.2 288 416 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-306.7 0L214.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg>'
+        }, {
+            name: 'forward',
+            buttonName: 'Forward',
+            fallback: '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M438.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-160-160c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L338.8 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l306.7 0L233.4 393.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l160-160z"/></svg>'
+        }, {
+            name: 'reload',
+            buttonName: 'Reload',
+            fallback: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M125.7 160H176c17.7 0 32 14.3 32 32s-14.3 32-32 32H48c-17.7 0-32-14.3-32-32V64c0-17.7 14.3-32 32-32s32 14.3 32 32v51.2L97.6 97.6c87.5-87.5 229.3-87.5 316.8 0s87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3s-163.8-62.5-226.3 0L125.7 160z"/></svg>'
+        }];
 
-    /**
-     * Gets the svg icon for the back button
-     */
-    function getBackButtonContent() {
-        return getVivaldiButton('Back', '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.2 288 416 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-306.7 0L214.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg>');
-    }
+        constructor() {
+            this._optionIcons = {...IconUtils.SVG};
+            setTimeout(() => this._initializeVivaldiIcons(), 1000);
+        }
 
-    /**
-     * Gets the svg icon for the forward button
-     */
-    function getForwardButtonContent() {
-        return getVivaldiButton('Forward', '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M438.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-160-160c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L338.8 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l306.7 0L233.4 393.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l160-160z"/></svg>');
-    }
+        /**
+         * initialize Vivaldi icons from the DOM or use fallback
+         */
+        _initializeVivaldiIcons() {
+            IconUtils.VIVALDI_BUTTONS.forEach(button => {
+                this._optionIcons[button.name] = this._getVivaldiButton(button.buttonName, button.fallback);
+            });
+        }
 
-    /**
-     * Gets the svg icon for the reload button
-     */
-    function getReloadButtonContent() {
-        return getVivaldiButton('Reload', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--!Font Awesome Free 6.5.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.--><path d="M125.7 160H176c17.7 0 32 14.3 32 32s-14.3 32-32 32H48c-17.7 0-32-14.3-32-32V64c0-17.7 14.3-32 32-32s32 14.3 32 32v51.2L97.6 97.6c87.5-87.5 229.3-87.5 316.8 0s87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3s-163.8-62.5-226.3 0L125.7 160z"/></svg>');
-    }
+        /**
+         * Gets the SVG of a Vivaldi button or returns the fallback
+         * @param {string} buttonName - name of the button in Vivali ui
+         * @param {string} fallbackSVG - fallback svg if no icon is found
+         * @returns {string} - the SVG as a string
+         */
+        _getVivaldiButton(buttonName, fallbackSVG) {
+            const svg = document.querySelector(`.button-toolbar [name="${buttonName}"] svg`);
+            return svg ? svg.cloneNode(true).outerHTML : fallbackSVG;
+        }
 
-    /**
-     * Gets the svg icon for the reader view button
-     */
-    function getReaderViewButtonContent() {
-        return '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M3 4h10v1H3zM3 6h10v1H3zM3 8h10v1H3zM3 10h6v1H3z"></path></svg>';
-    }
 
-    /**
-     *  Returns string of external link alt svg icon
-     */
-    function getNewTabButtonContent() {
-        return '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 512 512"><path d="M320 0c-17.7 0-32 14.3-32 32s14.3 32 32 32h82.7L201.4 265.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L448 109.3V192c0 17.7 14.3 32 32 32s32-14.3 32-32V32c0-17.7-14.3-32-32-32H320zM80 32C35.8 32 0 67.8 0 112V432c0 44.2 35.8 80 80 80H400c44.2 0 80-35.8 80-80V320c0-17.7-14.3-32-32-32s-32 14.3-32 32V432c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V112c0-8.8 7.2-16 16-16H192c17.7 0 32-14.3 32-32s-14.3-32-32-32H80z"/></svg>';
-    }
+        get ellipsis() {
+            return this._optionIcons.ellipsis;
+        }
 
-    /**
-     * Returns string of external link square alt svg icon
-     */
-    function getBackgroundTabButtonContent() {
-        return '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M384 32c35.3 0 64 28.7 64 64V416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96C0 60.7 28.7 32 64 32H384zM160 144c-13.3 0-24 10.7-24 24s10.7 24 24 24h94.1L119 327c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l135-135V328c0 13.3 10.7 24 24 24s24-10.7 24-24V168c0-13.3-10.7-24-24-24H160z"/></svg>';
+        get back() {
+            return this._optionIcons.back;
+        }
+
+        get forward() {
+            return this._optionIcons.forward;
+        }
+
+        get reload() {
+            return this._optionIcons.reload;
+        }
+
+        get readerView() {
+            return this._optionIcons.readerView;
+        }
+
+        get newTab() {
+            return this._optionIcons.newTab;
+        }
+
+        get backgroundTab() {
+            return this._optionIcons.backgroundTab;
+        }
     }
 })();
