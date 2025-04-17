@@ -289,7 +289,7 @@
             }
 
             #panels-container {
-                position: fixed !important;
+                position: absolute !important;
             }
 
             .extensionIconPopupMenu, .button-popup {
