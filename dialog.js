@@ -4,7 +4,7 @@
  */
 (() => {
     const CONFIG = {
-        linkIcon: 'fa-regular fa-square', // if set a icon shows up after links - example values 'fa-solid fa-up-right-from-square', 'fa-solid fa-circle-info', 'fa-regular fa-square' search for other icons: https://fontawesome.com/search?o=r&ic=free&s=solid&ip=classic
+        linkIcon: '', // if set a icon shows up after links - example values 'fa-solid fa-up-right-from-square', 'fa-solid fa-circle-info', 'fa-regular fa-square' search for other icons: https://fontawesome.com/search?o=r&ic=free&s=solid&ip=classic
         linkIconInteractionOnHover: true, // if false you have to click the icon to show the dialog - if true the dialog shows on mouseenter
         showIconDelay: 250, // set to 0 to disable - delays showing the icon on hovering a link
         showDialogOnHoverDelay: 250 // set to 0 to disable - delays showing the dialog on hovering the linkIcon
