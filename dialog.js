@@ -2,24 +2,37 @@
  * Opens links in a dialog, either by key combinations, holding middle mouse button or context menu
  * Forum link: https://forum.vivaldi.net/topic/92501/open-in-dialog-mod?_=1717490394230
  */
-(function () {
-    const linkIcon = '', // if set a icon shows up after links - example values 'up-right-from-square', 'circle-info' search for other icons: https://fontawesome.com/search?o=r&ic=free&s=solid&ip=classic
-        linkIconInteractionOnHover = false; // if false you have to click the icon to show the dialog - if true the dialog shows on mouseenter
+(() => {
+    const CONFIG = {
+        linkIcon: 'fa-regular fa-square', // if set a icon shows up after links - example values 'fa-solid fa-up-right-from-square', 'fa-solid fa-circle-info', 'fa-regular fa-square' search for other icons: https://fontawesome.com/search?o=r&ic=free&s=solid&ip=classic
+        linkIconInteractionOnHover: true, // if false you have to click the icon to show the dialog - if true the dialog shows on mouseenter
+        showIconDelay: 250, // set to 0 to disable - delays showing the icon on hovering a link
+        showDialogOnHoverDelay: 250 // set to 0 to disable - delays showing the dialog on hovering the linkIcon
+    };
 
+    const webviews = new Map(),
+        createdContextMenuIds = [],
+        optionIcons = {};
     let searchEngineCollection,
         defaultSearchId,
         privateSearchId,
-        createdContextMenuIds = [],
-        webviews = new Map(),
         fromPanel;
 
     // Wait for the browser to come to a ready state
     setTimeout(function waitDialog() {
         const browser = document.getElementById('browser');
         if (!browser) {
-            setTimeout(waitDialog, 300);
-            return;
+            return setTimeout(waitDialog, 300);
         }
+        initDialogMod();
+    }, 300);
+
+    /**
+     * Initializes the mod
+     */
+    function initDialogMod() {
+        // Creates the option icons
+        setTimeout(initOptionIcons.bind(this), 1000);
 
         // Create a context menu item to call on a link
         createContextMenuOption();
@@ -39,7 +52,7 @@
         // inject detection of click observers
         chrome.webNavigation.onCompleted.addListener((navigationDetails) => {
             const {webview, fromPanel} = getWebviewConfig(navigationDetails);
-            webview?.executeScript({code: `(${setUrlClickObserver})(${fromPanel}, ${JSON.stringify(linkIcon)}, ${linkIconInteractionOnHover})`});
+            webview?.executeScript({code: `(${setUrlClickObserver})(${fromPanel}, ${JSON.stringify(CONFIG)})`});
         });
 
         // react on demand to open dialog
@@ -49,7 +62,7 @@
                 dialogTab(message.url, message.fromPanel);
             }
         });
-    }, 300);
+    }
 
     /**
      * Finds the correct configuration for showing the dialog
@@ -75,48 +88,61 @@
     /**
      * Checks if a link is clicked by middle mouse while pressing Ctrl + Alt, then fires an event with the Url
      */
-    function setUrlClickObserver(fromPanel, linkIconString, linkIconInteractionOnHover) {
+    function setUrlClickObserver(fromPanel, config) {
         if (this.dialogEventListenerSet) return;
 
-        let timer;
-        document.addEventListener('pointerdown', function (event) {
+        const {linkIcon, linkIconInteractionOnHover, showIconDelay, showDialogOnHoverDelay} = config;
+
+        let holdTimerForMiddleClick;
+        document.addEventListener('pointerdown', (event) => {
             // Check if the Ctrl key, Shift key, and middle mouse button were pressed
-            if (event.ctrlKey && event.altKey && (event.button === 0 || event.button === 1)) {
+            if (event.ctrlKey && event.altKey && [0, 1].includes(event.button)) {
                 callDialog(event);
             } else if (event.button === 1) {
-                timer = setTimeout(() => callDialog(event), 500);
+                holdTimerForMiddleClick = setTimeout(() => callDialog(event), 500);
             }
         });
 
-        document.addEventListener('pointerup', function (event) {
-            if (event.button === 1) {
-                clearTimeout(timer);
-            }
+        document.addEventListener('pointerup', (event) => {
+            if (event.button === 1) clearTimeout(holdTimerForMiddleClick);
         });
 
-        if (linkIconString) {
-            let linkIconHideTimeout;
-            const hideLinkIcon = () => linkIconHideTimeout = setTimeout(() => linkIcon.style.display = 'none', linkIconInteractionOnHover ? 300 : 600),
-                linkIcon = (() => {
+        if (linkIcon) {
+            let linkIconHideTimeout, showIconTimeout, showDialogOnHoverTimeout;
+            const debounce = (fn, delay) => {
+                    let timer = null;
+                    return (...args) => {
+                        clearTimeout(timer);
+                        timer = setTimeout(fn.bind(this, ...args), delay);
+                    }
+                },
+                hideLinkIcon = () => linkIconHideTimeout = setTimeout(() => {
+                    icon.style.display = 'none';
+                    clearTimeout(showIconTimeout);
+                }, linkIconInteractionOnHover ? 300 : 600),
+                icon = (() => {
                     const icon = document.createElement('div');
-                    icon.className = `link-icon fa-solid fa-${linkIconString}`;
+                    icon.className = `link-icon ${linkIcon}`;
                     icon.style.display = 'none';
 
-                    icon.addEventListener(linkIconInteractionOnHover ? 'mouseenter' : 'click', () => {
-                        chrome.runtime.sendMessage({url: linkIcon.dataset.targetUrl, fromPanel: fromPanel});
-                    });
-
-                    if (!linkIconInteractionOnHover) {
+                    if (linkIconInteractionOnHover) {
+                        icon.addEventListener('mouseenter', () => {
+                            showDialogOnHoverTimeout = setTimeout(() => sendDialogMessage(icon.dataset.targetUrl), showDialogOnHoverDelay);
+                        });
+                        icon.addEventListener('mouseleave', () => clearTimeout(showDialogOnHoverTimeout));
+                    } else {
+                        icon.addEventListener('click', () => sendDialogMessage(icon.dataset.targetUrl));
                         icon.addEventListener('mouseenter', () => clearTimeout(linkIconHideTimeout));
                         icon.addEventListener('mouseleave', hideLinkIcon);
                     }
+
 
                     document.body.appendChild(icon);
 
                     return icon;
                 })();
 
-            document.addEventListener('mouseover', function (event) {
+            document.addEventListener('mouseover', debounce((event) => {
                 const link = getLinkElement(event);
                 if (!link) return;
 
@@ -124,15 +150,17 @@
 
                 requestAnimationFrame(() => {
                     const rect = link.getBoundingClientRect();
-                    linkIcon.style.display = 'block';
-                    linkIcon.style.left = `${rect.right + 5}px`;
-                    linkIcon.style.top = `${rect.top + window.scrollY}px`;
+                    Object.assign(icon.style, {
+                        display: 'block',
+                        left: `${rect.right + 5}px`,
+                        top: `${rect.top + window.scrollY}px`
+                    });
                 });
 
-                linkIcon.dataset.targetUrl = link.href;
+                icon.dataset.targetUrl = link.href;
 
                 link.addEventListener('mouseleave', hideLinkIcon);
-            });
+            }, showIconDelay));
 
             const style = document.createElement('style');
             style.textContent = `
@@ -149,11 +177,12 @@
 
         this.dialogEventListenerSet = true;
 
-        const callDialog = (event) => {
+        const sendDialogMessage = (url) => chrome.runtime.sendMessage({url, fromPanel}),
+            callDialog = (event) => {
                 let link = getLinkElement(event);
                 if (link) {
                     event.preventDefault();
-                    chrome.runtime.sendMessage({url: link.href, fromPanel: fromPanel});
+                    sendDialogMessage(link.href);
                 }
             },
             getLinkElement = (event) => {
@@ -201,7 +230,7 @@
         searchEngineCollection.forEach(function (engine) {
             if (!createdContextMenuIds.includes(engine.guid)) {
                 chrome.contextMenus.create({
-                    id: 'select-search-dialog-tab' + engine.guid,
+                    id: `select-search-dialog-tab${engine.guid}`,
                     parentId: 'select-search-dialog-tab',
                     title: engine.name,
                     contexts: ['selection']
@@ -229,7 +258,7 @@
     function removeContextMenuSelectSearch() {
         searchEngineCollection.forEach(function (engine) {
             if (createdContextMenuIds.includes(engine.guid)) {
-                chrome.contextMenus.remove('select-search-dialog-tab' + engine.guid);
+                chrome.contextMenus.remove(`select-search-dialog-tab${engine.guid}`);
                 createdContextMenuIds.splice(createdContextMenuIds.indexOf(engine.guid), 1);
             }
         });
@@ -308,7 +337,7 @@
         const dialogContainer = document.createElement('div'),
             dialogTab = document.createElement('div'),
             webview = document.createElement('webview'),
-            webviewId = 'dialog-' + getWebviewId(),
+            webviewId = `dialog-${getWebviewId()}`,
             progressBar = document.createElement('div'),
             optionsContainer = document.createElement('div');
 
@@ -343,12 +372,12 @@
 
         //#region progressBar properties
         progressBar.setAttribute('class', 'progress-bar');
-        progressBar.id = 'progressBar-' + webviewId;
+        progressBar.id = `progressBar-${webviewId}`;
         //#endregion
 
         //#region optionsContainer properties
         optionsContainer.setAttribute('class', 'options-container');
-        optionsContainer.innerHTML = getEllipsisContent();
+        optionsContainer.innerHTML = optionIcons.ellipsis;
 
         let timeout;
         optionsContainer.addEventListener('mouseover', function () {
@@ -356,26 +385,16 @@
                 optionsContainer.innerHTML = '';
                 showWebviewOptions(webviewId, optionsContainer);
             }
-            if (timeout) {
-                clearTimeout(timeout);
-                timeout = undefined;
-            }
+            clearTimeout(timeout);
         });
         optionsContainer.addEventListener('mouseleave', function () {
-            if (!timeout) {
-                timeout = setTimeout(() => {
-                    while (optionsContainer.firstChild) {
-                        optionsContainer.removeChild(optionsContainer.firstChild);
-                    }
-                    optionsContainer.innerHTML = getEllipsisContent();
-                }, 1500);
-            }
+            timeout = setTimeout(() => optionsContainer.innerHTML = optionIcons.ellipsis, 1500);
         });
         //#endregion
 
         //#region webview properties
         webview.id = webviewId;
-        webview.tab_id = webviewId + 'tabId';
+        webview.tab_id = `${webviewId}tabId`;
         webview.setAttribute('src', linkUrl);
 
         let progress = 0,
@@ -387,7 +406,7 @@
                 interval = undefined;
             }
             if (loadStop) {
-                const progressbar = document.getElementById('progressBar-' + webviewId);
+                const progressbar = document.getElementById(`progressBar-${webviewId}`);
                 progressbar.style.width = '100%';
 
                 setTimeout(() => {
@@ -400,7 +419,7 @@
 
         webview.addEventListener('loadstart', function () {
             this.style.backgroundColor = 'var(--colorBorder)';
-            const progressbar = document.getElementById('progressBar-' + webviewId);
+            const progressbar = document.getElementById(`progressBar-${webviewId}`);
             progressbar.style.visibility = 'visible';
 
             if (!interval) {
@@ -414,8 +433,9 @@
                 }, 10);
             }
 
-            if (document.getElementById('input-' + this.id) !== null) {
-                document.getElementById('input-' + this.id).value = this.src;
+            const input = document.getElementById(`input-${this.id}`);
+            if (input !== null) {
+                input.value = this.src;
             }
         });
         webview.addEventListener('loadstop', function () {
@@ -431,7 +451,7 @@
             event.preventDefault();
             event.stopPropagation();
 
-            if (event.target.id === 'input-' + webviewId) {
+            if (event.target.id === `input-${webviewId}`) {
                 const inputElement = event.target;
 
                 // Calculate the cursor position based on the click location
@@ -489,7 +509,7 @@
      * @param {Object} thisElement the current instance divOptionContainer (div) element
      */
     function showWebviewOptions(webviewId, thisElement) {
-        let inputId = 'input-' + webviewId,
+        let inputId = `input-${webviewId}`,
             data = webviews.get(webviewId),
             webview = data ? data.webview : undefined;
         if (webview && document.getElementById(inputId) === null) {
@@ -517,14 +537,24 @@
                 }
             });
 
-            let buttonBack = createOptionsButton(getBackButtonContent(), webview.back.bind(webview)),
-                buttonForward = createOptionsButton(getForwardButtonContent(), webview.forward.bind(webview)),
-                buttonReload = createOptionsButton(getReloadButtonContent(), webview.reload.bind(webview)),
-                buttonReaderView = createOptionsButton(getReaderViewButtonContent(), showReaderView.bind(this, webview), 'reader-view-toggle'),
-                buttonNewTab = createOptionsButton(getNewTabButtonContent(), openNewTab.bind(this, inputId, true)),
-                buttonBackgroundTab = createOptionsButton(getBackgroundTabButtonContent(), openNewTab.bind(this, inputId, false));
+            const fragment = document.createDocumentFragment(),
+                buttons = [
+                    {content: optionIcons.back, action: webview.back.bind(webview)},
+                    {content: optionIcons.forward, action: webview.forward.bind(webview)},
+                    {content: optionIcons.reload, action: webview.reload.bind(webview)},
+                    {
+                        content: optionIcons.readerView,
+                        action: showReaderView.bind(this, webview),
+                        cls: 'reader-view-toggle'
+                    },
+                    {content: optionIcons.newTab, action: openNewTab.bind(this, inputId, true)},
+                    {content: optionIcons.backgroundTab, action: openNewTab.bind(this, inputId, false)},
+                ];
 
-            thisElement.append(buttonBack, buttonForward, buttonReload, buttonReaderView, buttonNewTab, buttonBackgroundTab, input);
+            buttons.forEach(button => fragment.appendChild(createOptionsButton(button.content, button.action, button.cls || '')));
+            fragment.appendChild(input);
+
+            thisElement.append(fragment);
         }
     }
 
@@ -536,19 +566,14 @@
      */
     function createOptionsButton(content, clickListenerCallback, cls = '') {
         const button = document.createElement('button');
-        button.setAttribute('class', `options-button ${cls}`);
+        button.setAttribute('class', `options-button ${cls}`.trim());
+        button.addEventListener('click', clickListenerCallback);
 
         if (typeof content === 'string') {
             button.innerHTML = content;
         } else {
             button.appendChild(content);
         }
-
-        button.addEventListener('click', function (event) {
-            if (event.target === this || this.firstChild) {
-                clickListenerCallback();
-            }
-        });
 
         return button;
     }
@@ -557,11 +582,11 @@
      * Returns a random, verified id.
      */
     function getWebviewId() {
-        let tempId = 0;
-        while (document.getElementById('dialog-' + tempId)) {
-            tempId = Math.floor(Math.random() * 1000 + 1);
-        }
-        return tempId;
+        let id;
+        do {
+            id = Math.floor(Math.random() * 1000 + 1);
+        } while (document.getElementById(`dialog-${id}`));
+        return id;
     }
 
     /**
@@ -573,7 +598,7 @@
         if (webview.src.includes('https://clearthis.page/?u=')) {
             webview.src = webview.src.replace('https://clearthis.page/?u=', '');
         } else {
-            webview.src = 'https://clearthis.page/?u=' + webview.src;
+            webview.src = `https://clearthis.page/?u=${webview.src}`;
         }
     }
 
@@ -587,6 +612,18 @@
         chrome.tabs.create({url: url, active: active});
     }
 
+    function initOptionIcons() {
+        Object.assign(optionIcons, {
+            ellipsis: getEllipsisContent(),
+            back: getBackButtonContent(),
+            forward: getForwardButtonContent(),
+            reload: getReloadButtonContent(),
+            readerView: getReaderViewButtonContent(),
+            newTab: getNewTabButtonContent(),
+            backgroundTab: getBackgroundTabButtonContent()
+        });
+    }
+
     /**
      * Returns string of ellipsis svg icon
      */
@@ -594,34 +631,30 @@
         return '<svg xmlns="http://www.w3.org/2000/svg" height="2em" viewBox="0 0 448 512"><path d="M8 256a56 56 0 1 1 112 0A56 56 0 1 1 8 256zm160 0a56 56 0 1 1 112 0 56 56 0 1 1 -112 0zm216-56a56 56 0 1 1 0 112 56 56 0 1 1 0-112z"/></svg>';
     }
 
+    function getVivaldiButton(buttonName, fallbackSVG) {
+        const svg = document.querySelector(`.button-toolbar [name="${buttonName}"] svg`);
+        return svg ? svg.cloneNode(true) : fallbackSVG;
+    }
+
     /**
      * Gets the svg icon for the back button
      */
     function getBackButtonContent() {
-        const svg = document.querySelector('.button-toolbar [name="Back"] svg');
-        return svg
-            ? svg.cloneNode(true)
-            : '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.2 288 416 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-306.7 0L214.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg>';
+        return getVivaldiButton('Back', '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.2 288 416 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-306.7 0L214.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg>');
     }
 
     /**
      * Gets the svg icon for the forward button
      */
     function getForwardButtonContent() {
-        const svg = document.querySelector('.button-toolbar [name="Forward"] svg');
-        return svg
-            ? svg.cloneNode(true)
-            : '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M438.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-160-160c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L338.8 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l306.7 0L233.4 393.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l160-160z"/></svg>';
+        return getVivaldiButton('Forward', '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M438.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-160-160c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L338.8 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l306.7 0L233.4 393.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l160-160z"/></svg>');
     }
 
     /**
      * Gets the svg icon for the reload button
      */
     function getReloadButtonContent() {
-        const svg = document.querySelector('.button-toolbar [name="Reload"] svg');
-        return svg
-            ? svg.cloneNode(true)
-            : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--!Font Awesome Free 6.5.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.--><path d="M125.7 160H176c17.7 0 32 14.3 32 32s-14.3 32-32 32H48c-17.7 0-32-14.3-32-32V64c0-17.7 14.3-32 32-32s32 14.3 32 32v51.2L97.6 97.6c87.5-87.5 229.3-87.5 316.8 0s87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3s-163.8-62.5-226.3 0L125.7 160z"/></svg>';
+        return getVivaldiButton('Reload', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--!Font Awesome Free 6.5.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.--><path d="M125.7 160H176c17.7 0 32 14.3 32 32s-14.3 32-32 32H48c-17.7 0-32-14.3-32-32V64c0-17.7 14.3-32 32-32s32 14.3 32 32v51.2L97.6 97.6c87.5-87.5 229.3-87.5 316.8 0s87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3s-163.8-62.5-226.3 0L125.7 160z"/></svg>');
     }
 
     /**
