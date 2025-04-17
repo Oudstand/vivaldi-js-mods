@@ -28,9 +28,10 @@
      * Initializes the mod
      */
     function initDialogMod() {
-        searchEngineUtils = new SearchEngineUtils();
-        searchEngineUtils.on(SearchEngineUtils.OPEN_LINK_IN_DIALOG, (url) => dialogTab(url));
-        searchEngineUtils.on(SearchEngineUtils.SEARCH_IN_DIALOG, (engineId, searchText) => dialogTabSearch(engineId, searchText));
+        searchEngineUtils = new SearchEngineUtils(
+            (url) => dialogTab(url),
+            (engineId, searchText) => dialogTabSearch(engineId, searchText)
+        );
 
         iconUtils = new IconUtils();
 
@@ -524,26 +525,23 @@
     }
 
     class SearchEngineUtils {
-        static OPEN_LINK_IN_DIALOG = 'openLinkInDialogTab';
-        static SEARCH_IN_DIALOG = 'searchInDialogTab';
-
         static CONTEXT_MENU_IDS = {
             LINK: 'dialog-tab-link',
             SEARCH: 'search-dialog-tab',
             SELECT_SEARCH: 'select-search-dialog-tab'
         };
 
-        eventListeners = {
-            openLinkInDialogTab: [],
-            searchInDialogTab: []
-        };
-
+        openLinkCallback
+        searchCallback
         createdContextMenuIds = [];
         searchEngineCollection;
         defaultSearchId;
         privateSearchId;
 
-        constructor() {
+        constructor(openLinkCallback, searchCallback) {
+            this.openLinkCallback = openLinkCallback;
+            this.searchCallback = searchCallback;
+
             // create a context menu item to call on a link
             this.createContextMenuOption();
 
@@ -555,28 +553,6 @@
                 this.removeContextMenuSelectSearch();
                 this.updateSearchEnginesAndContextMenu();
             });
-        }
-
-        /**
-         * Register event listener
-         * @param {string} event - name of the event
-         * @param {Function} callback - callback function
-         */
-        on(event, callback) {
-            if (this.eventListeners[event]) {
-                this.eventListeners[event].push(callback);
-            }
-        }
-
-        /**
-         * Call event
-         * @param {string} event - name of the event
-         * @param {...any} args - arguments for callback
-         */
-        emit(event, ...args) {
-            if (this.eventListeners[event]) {
-                this.eventListeners[event].forEach(listener => listener(...args));
-            }
         }
 
         /**
@@ -601,13 +577,13 @@
 
             chrome.contextMenus.onClicked.addListener((itemInfo) => {
                 if (itemInfo.menuItemId === SearchEngineUtils.CONTEXT_MENU_IDS.LINK) {
-                    this.emit(SearchEngineUtils.OPEN_LINK_IN_DIALOG, itemInfo.linkUrl);
+                    this.openLinkCallback(itemInfo.linkUrl);
                 } else if (itemInfo.menuItemId === SearchEngineUtils.CONTEXT_MENU_IDS.SEARCH) {
-                    let engineId = window.incognito ? this.privateSearchId : this.defaultSearchId;
-                    this.emit(SearchEngineUtils.SEARCH_IN_DIALOG, engineId, itemInfo.selectionText);
+                    const engineId = window.incognito ? this.privateSearchId : this.defaultSearchId;
+                    this.searchCallback(engineId, itemInfo.selectionText);
                 } else if (itemInfo.parentMenuItemId === SearchEngineUtils.CONTEXT_MENU_IDS.SELECT_SEARCH) {
-                    let engineId = itemInfo.menuItemId.substr(itemInfo.parentMenuItemId.length);
-                    this.emit(SearchEngineUtils.SEARCH_IN_DIALOG, engineId, itemInfo.selectionText);
+                    const engineId = itemInfo.menuItemId.substr(itemInfo.parentMenuItemId.length);
+                    this.searchCallback(engineId, itemInfo.selectionText);
                 }
             });
         }
