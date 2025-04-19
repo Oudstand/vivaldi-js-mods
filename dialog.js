@@ -1,19 +1,20 @@
 /**
- * Opens links in a dialog, either by key combinations, holding middle mouse button or context menu
+ * Opens links in a dialog, either by key combinations, holding the middle mouse button or context menu
  * Forum link: https://forum.vivaldi.net/topic/92501/open-in-dialog-mod?_=1717490394230
  */
 (() => {
-    const CONFIG = {
-        linkIcon: '', // if set an icon shows up after links - example values 'fa-solid fa-up-right-from-square', 'fa-solid fa-circle-info', 'fa-regular fa-square' search for other icons: https://fontawesome.com/search?o=r&ic=free&s=solid&ip=classic
-        linkIconInteractionOnHover: true, // if false you have to click the icon to show the dialog - if true the dialog shows on mouseenter
-        showIconDelay: 250, // set to 0 to disable - delays showing the icon on hovering a link
-        showDialogOnHoverDelay: 250 // set to 0 to disable - delays showing the dialog on hovering the linkIcon
-    };
-
-    const webviews = new Map();
-    let searchEngineUtils,
-        iconUtils,
-        fromPanel;
+    const ICON_CONFIG = {
+            linkIcon: '', // if set, an icon shows up after links - example values 'fa-solid fa-up-right-from-square', 'fa-solid fa-circle-info', 'fa-regular fa-square' search for other icons: https://fontawesome.com/search?o=r&ic=free&s=solid&ip=classic
+            linkIconInteractionOnHover: true, // if false, you have to click the icon to show the dialog - if true, the dialog shows on mouseenter
+            showIconDelay: 250, // set to 0 to disable - delays showing the icon on hovering a link
+            showDialogOnHoverDelay: 250 // set to 0 to disable - delays showing the dialog on hovering the linkIcon
+        },
+        CONTEXT_MENU_CONFIG = {
+            menuPrefix: '[Dialog Tab]',
+            linkMenuTitle: 'Link öffnen',
+            searchMenuTitle: 'Suche nach "%s"',
+            selectSearchMenuTitle: 'Suche mit'
+        };
 
     // Wait for the browser to come to a ready state
     setTimeout(function waitDialog() {
@@ -21,134 +22,524 @@
         if (!browser) {
             return setTimeout(waitDialog, 300);
         }
-        initDialogMod();
+        new DialogMod();
     }, 300);
 
-    /**
-     * Initializes the mod
-     */
-    function initDialogMod() {
-        searchEngineUtils = new SearchEngineUtils(
-            (url) => dialogTab(url),
-            (engineId, searchText) => dialogTabSearch(engineId, searchText)
-        );
-
+    class DialogMod {
+        webviews = new Map();
+        websiteInjectionUtils = new WebsiteInjectionUtils(ICON_CONFIG);
         iconUtils = new IconUtils();
+        searchEngineUtils = new SearchEngineUtils(
+            (url) => this.dialogTab(url),
+            (engineId, searchText) => this.dialogTabSearch(engineId, searchText),
+            CONTEXT_MENU_CONFIG
+        );
+        KEYBOARD_SHORTCUTS = {
+            'Ctrl+Alt+Period': this.searchForSelectedText,
+            'Ctrl+Shift+F': this.searchForSelectedText,
+            Esc: () => {
+                if (!this.webviews.size) return;
 
-        // Setup keyboard shortcuts
-        vivaldi.tabsPrivate.onKeyboardShortcut.addListener(keyCombo);
-
-        // inject detection of click observers
-        chrome.webNavigation.onCompleted.addListener((navigationDetails) => {
-            const {webview, fromPanel} = getWebviewConfig(navigationDetails);
-            webview?.executeScript({code: `(${setUrlClickObserver})(${fromPanel}, ${JSON.stringify(CONFIG)})`});
-        });
-
-        // react on demand to open dialog
-        chrome.runtime.onMessage.addListener((message) => {
-            if (message.url) {
-                fromPanel = message.fromPanel;
-                dialogTab(message.url, message.fromPanel);
+                const webviewValues = Array.from(this.webviews.values());
+                let webviewData = webviewValues.at(-1);
+                if (!webviewData.fromPanel) {
+                    const tabId = Number(document.querySelector('.active.visible.webpageview webview').tab_id);
+                    webviewData = webviewValues.findLast(_data => _data.tabId === tabId);
+                }
+                webviewData && this.removeDialog(webviewData.webview.id);
             }
-        });
+        };
+
+        constructor() {
+            this.initDialogMod();
+        }
+
+        /**
+         * Initializes the mod
+         */
+        initDialogMod() {
+            // Setup keyboard shortcuts
+            vivaldi.tabsPrivate.onKeyboardShortcut.addListener(this.keyCombo.bind(this));
+
+            // inject detection of click observers
+            chrome.webNavigation.onCompleted.addListener((navigationDetails) => {
+                const {webview, fromPanel} = this.getWebviewConfig(navigationDetails);
+                this.websiteInjectionUtils.injectCode(webview, fromPanel, ICON_CONFIG);
+            });
+
+            // react on demand to open a dialog
+            chrome.runtime.onMessage.addListener((message) => {
+                if (message.url) {
+                    this.fromPanel = message.fromPanel;
+                    this.dialogTab(message.url, message.fromPanel);
+                }
+            });
+        }
+
+        /**
+         * Finds the correct configuration for showing the dialog
+         */
+        getWebviewConfig(navigationDetails) {
+            // first dialog from the webpanel
+            let webview = document.querySelector(`.webpanel-content webview[src*="${navigationDetails.url}"]`);
+            if (webview) return {webview, fromPanel: true};
+
+            // first dialog from the tab
+            webview = document.querySelector(`webview[tab_id="${navigationDetails.tabId}"]`);
+            if (webview) return {webview, fromPanel: false};
+
+            // follow-up dialog from the webpanel
+            webview = Array.from(this.webviews.values()).find(view => view.fromPanel)?.webview;
+            if (webview) return {webview, fromPanel: true};
+
+            // follow-up dialog from tab
+            const lastWebviewId = document.querySelector('.active.visible.webpageview .dialog-container:last-of-type webview')?.id;
+            return {webview: this.webviews.get(lastWebviewId)?.webview, fromPanel: false};
+        }
+
+        /**
+         * Open Default Search Engine in Dialog and search for the selected text
+         * @returns {Promise<void>}
+         */
+        async searchForSelectedText() {
+            const tabs = await chrome.tabs.query({active: true});
+            vivaldi.utilities.getSelectedText(tabs[0].id, (text) => this.dialogTabSearch(this.searchEngineUtils.defaultSearchId, text));
+        };
+
+        /**
+         * Prepares url for search, calls dailogTab function
+         * @param {String} engineId engine id of the engine to be used
+         * @param {int} selectionText the text to search
+         */
+        async dialogTabSearch(engineId, selectionText) {
+            let searchRequest = await vivaldi.searchEngines.getSearchRequest(engineId, selectionText);
+            this.dialogTab(searchRequest.url);
+        }
+
+        /**
+         * Handle a potential keyboard shortcut (copy from KeyboardMachine)
+         * @param {number} id I don't know what this does, but it's an extra argument
+         * @param {String} combination written in the form (CTRL+SHIFT+ALT+KEY)
+         */
+        keyCombo(id, combination) {
+            const customShortcut = this.KEYBOARD_SHORTCUTS[combination];
+            if (customShortcut) {
+                customShortcut();
+            }
+        }
+
+        /**
+         * Removes the dialog for a giveb webview
+         * @param webviewId The id of the webview
+         */
+        removeDialog(webviewId) {
+            const data = this.webviews.get(webviewId);
+            if (data) {
+                chrome.tabs.query({}, (tabs) => {
+                    const tab = tabs.find(tab => tab.vivExtData && tab.vivExtData.includes(`${webviewId}tabId`));
+                    if (tab) chrome.tabs.remove(tab.id);
+                });
+
+                data.divContainer.remove();
+                chrome.tabs.onRemoved.removeListener(data.tabCloseListener);
+                this.webviews.delete(webviewId);
+            }
+        }
+
+        /**
+         * Checks if the current window is the correct window to show the dialog and then opens the dialog
+         * @param {string} linkUrl the url to load
+         * @param {boolean} fromPanel indicates whether the dialog is opened from a panel
+         */
+        dialogTab(linkUrl, fromPanel = undefined) {
+            chrome.windows.getLastFocused((window) => {
+                if (window.id === vivaldiWindowId && window.state !== chrome.windows.WindowState.MINIMIZED) {
+                    this.showDialog(linkUrl, fromPanel);
+                }
+            });
+        }
+
+        /**
+         * Opens a link in a dialog like display in the current visible tab
+         * @param {string} linkUrl the url to load
+         * @param {boolean} fromPanel indicates whether the dialog is opened from a panel
+         */
+        showDialog(linkUrl, fromPanel) {
+            const dialogContainer = document.createElement('div'),
+                dialogTab = document.createElement('div'),
+                webview = document.createElement('webview'),
+                webviewId = `dialog-${this.getWebviewId()}`,
+                progressBar = new ProgressBar(webviewId),
+                optionsContainer = document.createElement('div');
+
+            if (fromPanel === undefined && this.webviews.size !== 0) {
+                fromPanel = Array.from(this.webviews.values()).at(-1).fromPanel;
+            }
+
+            const tabId = !fromPanel ? Number(document.querySelector('.active.visible.webpageview webview').tab_id) : null;
+
+            this.webviews.set(webviewId, {
+                divContainer: dialogContainer,
+                webview: webview,
+                fromPanel: fromPanel,
+                tabId: tabId
+            });
+
+            // remove dialogs when tab is closed without closing dialogs
+            if (!fromPanel) {
+                const clearWebviews = (closedTabId) => {
+                    if (tabId === closedTabId) {
+                        this.webviews.forEach((view, key) => view.tabCloseListener === clearWebviews && this.removeDialog(key));
+                        chrome.tabs.onRemoved.removeListener(clearWebviews);
+                    }
+                };
+                this.webviews.get(webviewId).tabCloseListener = clearWebviews;
+                chrome.tabs.onRemoved.addListener(clearWebviews);
+            }
+
+            //#region dialogTab properties
+            dialogTab.setAttribute('class', 'dialog-tab');
+            dialogTab.style.width = 85 - 5 * this.webviews.size + '%';
+            dialogTab.style.height = 95 - 5 * this.webviews.size + '%';
+            //#endregion
+
+            //#region optionsContainer properties
+            optionsContainer.setAttribute('class', 'options-container');
+            optionsContainer.innerHTML = this.iconUtils.ellipsis;
+
+            let timeout;
+            optionsContainer.addEventListener('mouseover', () => {
+                if (optionsContainer.children.length === 1) {
+                    optionsContainer.innerHTML = '';
+                    this.showWebviewOptions(webviewId, optionsContainer);
+                }
+                clearTimeout(timeout);
+            });
+            optionsContainer.addEventListener('mouseleave', () => {
+                timeout = setTimeout(() => optionsContainer.innerHTML = this.iconUtils.ellipsis, 1500);
+            });
+            //#endregion
+
+            //#region webview properties
+            webview.id = webviewId;
+            webview.tab_id = `${webviewId}tabId`;
+            webview.setAttribute('src', linkUrl);
+
+            webview.addEventListener('loadstart', () => {
+                webview.style.backgroundColor = 'var(--colorBorder)';
+                progressBar.start();
+
+                const input = document.getElementById(`input-${webview.id}`);
+                if (input !== null) {
+                    input.value = webview.src;
+                }
+            });
+            webview.addEventListener('loadstop', () => progressBar.clear(true));
+            fromPanel && webview.addEventListener('mousedown', (event) => event.stopPropagation());
+            //#endregion
+
+            //#region dialogContainer properties
+            dialogContainer.setAttribute('class', 'dialog-container');
+
+            let stopEvent = (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+
+                if (event.target.id === `input-${webviewId}`) {
+                    const inputElement = event.target;
+
+                    // Calculate the cursor position based on the click location
+                    const offsetX = event.clientX - inputElement.getBoundingClientRect().left;
+
+                    // Create a canvas to measure text width
+                    const context = document.createElement('canvas').getContext('2d');
+                    context.font = window.getComputedStyle(inputElement).font;
+
+                    // Measure the width of the text up to each character
+                    let cursorPosition = 0,
+                        textWidth = 0;
+                    for (let i = 0; i < inputElement.value.length; i++) {
+                        const charWidth = context.measureText(inputElement.value[i]).width;
+                        if (textWidth + charWidth > offsetX) {
+                            cursorPosition = i;
+                            break;
+                        }
+                        textWidth += charWidth;
+                        cursorPosition = i + 1;
+                    }
+
+                    // Manually focus the input element and set the cursor position
+                    inputElement.focus({preventScroll: true});
+                    inputElement.setSelectionRange(cursorPosition, cursorPosition);
+                }
+            };
+
+            fromPanel && document.body.addEventListener('pointerdown', stopEvent);
+
+            dialogContainer.addEventListener('click', (event) => {
+                if (event.target === dialogContainer) {
+                    fromPanel && document.body.removeEventListener('pointerdown', stopEvent);
+                    this.removeDialog(webviewId);
+                }
+            });
+
+            //#endregion
+
+            dialogTab.appendChild(optionsContainer);
+            dialogTab.appendChild(progressBar.element);
+            dialogTab.appendChild(webview);
+
+            dialogContainer.appendChild(dialogTab);
+
+            // Get for current tab and append divContainer
+            fromPanel
+                ? document.querySelector('#browser').appendChild(dialogContainer)
+                : document.querySelector('.active.visible.webpageview').appendChild(dialogContainer);
+        }
+
+        /**
+         * Displays open in tab buttons and current url in input element
+         * @param {string} webviewId is the id of the webview
+         * @param {Object} thisElement the current instance divOptionContainer (div) element
+         */
+        showWebviewOptions(webviewId, thisElement) {
+            let inputId = `input-${webviewId}`,
+                data = this.webviews.get(webviewId),
+                webview = data ? data.webview : undefined;
+            if (webview && document.getElementById(inputId) === null) {
+                const input = document.createElement('input', 'text'),
+                    VALID_URL_PREFIXES = [
+                        'http://',
+                        'https://',
+                        'file://',
+                        'vivaldi://'
+                    ],
+                    isValidUrl = (url) => VALID_URL_PREFIXES.some(prefix => url.startsWith(prefix) || url === 'about:blank');
+
+                input.value = webview.src;
+                input.id = inputId;
+                input.setAttribute('class', 'dialog-input');
+
+                input.addEventListener('keydown', async (event) => {
+                    if (event.key === 'Enter') {
+                        let value = input.value;
+                        if (isValidUrl(value)) {
+                            webview.src = value;
+                        } else {
+                            const searchRequest = await vivaldi.searchEngines.getSearchRequest(this.searchEngineUtils.defaultSearchId, value);
+                            webview.src = searchRequest.url;
+                        }
+                    }
+                });
+
+                const fragment = document.createDocumentFragment(),
+                    buttons = [
+                        {content: this.iconUtils.back, action: webview.back.bind(webview)},
+                        {content: this.iconUtils.forward, action: webview.forward.bind(webview)},
+                        {content: this.iconUtils.reload, action: webview.reload.bind(webview)},
+                        {
+                            content: this.iconUtils.readerView,
+                            action: this.showReaderView.bind(this, webview),
+                            cls: 'reader-view-toggle'
+                        },
+                        {content: this.iconUtils.newTab, action: this.openNewTab.bind(this, inputId, true)},
+                        {content: this.iconUtils.backgroundTab, action: this.openNewTab.bind(this, inputId, false)},
+                    ];
+
+                buttons.forEach(button => fragment.appendChild(this.createOptionsButton(button.content, button.action, button.cls || '')));
+                fragment.appendChild(input);
+
+                thisElement.append(fragment);
+            }
+        }
+
+        /**
+         * Create a button with default style for the web view options.
+         * @param {Node | string} content the content of the button to display
+         * @param {Function} clickListenerCallback the click listeners callback function
+         * @param {string} cls optional additional class for the button
+         */
+        createOptionsButton(content, clickListenerCallback, cls = '') {
+            const button = document.createElement('button');
+            button.setAttribute('class', `options-button ${cls}`.trim());
+            button.addEventListener('click', clickListenerCallback);
+
+            if (typeof content === 'string') {
+                button.innerHTML = content;
+            } else {
+                button.appendChild(content);
+            }
+
+            return button;
+        }
+
+        /**
+         * Returns a random, verified id.
+         */
+        getWebviewId() {
+            return Math.floor(Math.random() * 10000) + new Date().getTime() % 1000;
+        }
+
+        /**
+         * Sets the webviews content to a reader version
+         *
+         * @param {webview} webview the webview to update
+         */
+        showReaderView(webview) {
+            if (webview.src.includes('https://clearthis.page/?u=')) {
+                webview.src = webview.src.replace('https://clearthis.page/?u=', '');
+            } else {
+                webview.src = `https://clearthis.page/?u=${webview.src}`;
+            }
+        }
+
+        /**
+         * Opens a new Chrome tab with specified active boolean value
+         * @param {string} inputId is the id of the input containing current url
+         * @param {boolean} active indicates whether the tab is active or not (background tab)
+         */
+        openNewTab(inputId, active) {
+            const url = document.getElementById(inputId).value;
+            chrome.tabs.create({url: url, active: active});
+        }
     }
 
-    /**
-     * Finds the correct configuration for showing the dialog
-     */
-    function getWebviewConfig(navigationDetails) {
-        // first dialog from webpanel
-        let webview = document.querySelector(`.webpanel-content webview[src*="${navigationDetails.url}"]`);
-        if (webview) return {webview, fromPanel: true};
+    class WebsiteInjectionUtils {
 
-        // first dialog from tab
-        webview = document.querySelector(`webview[tab_id="${navigationDetails.tabId}"]`);
-        if (webview) return {webview, fromPanel: false};
+        constructor(iconConfig) {
+            this.iconConfig = JSON.stringify(iconConfig);
+        }
 
-        // follow-up dialog from webpanel
-        webview = Array.from(webviews.values()).find(view => view.fromPanel)?.webview;
-        if (webview) return {webview, fromPanel: true};
+        injectCode(webview, fromPanel) {
+            const handler = WebsiteLinkInteractionHandler.toString(),
+                instantiationCode = `
+                if (!this.dialogEventListenerSet){
+                    new (${handler})(${fromPanel}, ${this.iconConfig});
+                    this.dialogEventListenerSet = true;
+                }
+            `;
 
-        // follow-up dialog from tab
-        const lastWebviewId = document.querySelector('.active.visible.webpageview .dialog-container:last-of-type webview')?.id;
-        return {webview: webviews.get(lastWebviewId)?.webview, fromPanel: false};
+            webview?.executeScript({code: instantiationCode});
+        }
     }
 
-    /**
-     * Checks if a link is clicked by middle mouse while pressing Ctrl + Alt, then fires an event with the Url
-     */
-    function setUrlClickObserver(fromPanel, config) {
-        if (this.dialogEventListenerSet) return;
+    class WebsiteLinkInteractionHandler {
+        constructor(fromPanel, config) {
+            this.fromPanel = fromPanel;
+            this.config = config;
 
-        const {linkIcon, linkIconInteractionOnHover, showIconDelay, showDialogOnHoverDelay} = config;
 
-        let holdTimerForMiddleClick;
-        document.addEventListener('pointerdown', (event) => {
-            // Check if the Ctrl key, Shift key, and middle mouse button were pressed
-            if (event.ctrlKey && event.altKey && [0, 1].includes(event.button)) {
-                callDialog(event);
-            } else if (event.button === 1) {
-                holdTimerForMiddleClick = setTimeout(() => callDialog(event), 500);
+            this.icon = null;
+
+            this.timers = {
+                showIcon: null,
+                showDialog: null,
+                hideIcon: null
             }
-        });
 
-        document.addEventListener('pointerup', (event) => {
-            if (event.button === 1) clearTimeout(holdTimerForMiddleClick);
-        });
+            this.#initialize();
+        }
 
-        if (linkIcon) {
-            let linkIconHideTimeout, showIconTimeout, showDialogOnHoverTimeout;
-            const debounce = (fn, delay) => {
-                    let timer = null;
-                    return (...args) => {
-                        clearTimeout(timer);
-                        timer = setTimeout(fn.bind(this, ...args), delay);
-                    }
-                },
-                icon = (() => {
-                    const icon = document.createElement('div');
-                    icon.className = `link-icon ${linkIcon}`;
-                    icon.style.display = 'none';
+        /**
+         * Checks if a link is clicked by the middle mouse while pressing Ctrl + Alt, then fires an event with the Url
+         */
+        #initialize() {
+            this.#setupMouseHandling();
 
-                    if (linkIconInteractionOnHover) {
-                        icon.addEventListener('mouseenter', () => {
-                            showDialogOnHoverTimeout = setTimeout(() => sendDialogMessage(icon.dataset.targetUrl), showDialogOnHoverDelay);
-                        });
-                        icon.addEventListener('mouseleave', () => clearTimeout(showDialogOnHoverTimeout));
-                    } else {
-                        icon.addEventListener('click', () => sendDialogMessage(icon.dataset.targetUrl));
-                        icon.addEventListener('mouseenter', () => clearTimeout(linkIconHideTimeout));
-                        icon.addEventListener('mouseleave', hideLinkIcon);
-                    }
+            if (this.config.linkIcon) {
+                this.#setupIconHandling();
+            }
+        }
 
-                    document.body.appendChild(icon);
-                    return icon;
-                })(),
-                hideLinkIcon = () => linkIconHideTimeout = setTimeout(() => {
-                    icon.style.display = 'none';
-                    clearTimeout(showIconTimeout);
-                }, linkIconInteractionOnHover ? 300 : 600);
+        /**
+         * Richtet die Maus-Event-Listener ein
+         */
+        #setupMouseHandling() {
+            let holdTimerForMiddleClick;
 
-            document.addEventListener('mouseover', debounce((event) => {
-                const link = getLinkElement(event);
+            document.addEventListener('pointerdown', (event) => {
+                // Check if the Ctrl key, Alt key, and mouse button were pressed
+                if (event.ctrlKey && event.altKey && [0, 1].includes(event.button)) {
+                    this.#callDialog(event);
+                } else if (event.button === 1) {
+                    holdTimerForMiddleClick = setTimeout(() => this.#callDialog(event), 500);
+                }
+            });
+
+            document.addEventListener('pointerup', (event) => {
+                if (event.button === 1) clearTimeout(holdTimerForMiddleClick);
+            });
+        }
+
+        #setupIconHandling() {
+            this.#createIcon();
+            this.#createIconStyle()
+
+            document.addEventListener('mouseover', this.debounce((event) => {
+                const link = this.#getLinkElement(event);
                 if (!link) return;
 
-                clearTimeout(linkIconHideTimeout);
+                clearTimeout(this.timers.hideIcon);
 
                 requestAnimationFrame(() => {
                     const rect = link.getBoundingClientRect();
-                    Object.assign(icon.style, {
+                    Object.assign(this.icon.style, {
                         display: 'block',
                         left: `${rect.right + 5}px`,
                         top: `${rect.top + window.scrollY}px`
                     });
                 });
 
-                icon.dataset.targetUrl = link.href;
+                this.icon.dataset.targetUrl = link.href;
 
-                link.addEventListener('mouseleave', hideLinkIcon);
-            }, showIconDelay));
+                link.addEventListener('mouseleave', this.#hideLinkIcon.bind(this));
+            }, this.config.showIconDelay));
+        }
 
+        #createIcon() {
+            const icon = document.createElement('div');
+            icon.className = `link-icon ${this.config.linkIcon}`;
+            icon.style.display = 'none';
+
+            if (this.config.linkIconInteractionOnHover) {
+                icon.addEventListener('mouseenter', () => {
+                    this.timers.showDialog = setTimeout(() => this.#sendDialogMessage(this.icon.dataset.targetUrl), this.config.showDialogOnHoverDelay);
+                });
+                icon.addEventListener('mouseleave', () => clearTimeout(this.timers.showDialog));
+            } else {
+                icon.addEventListener('click', () => this.#sendDialogMessage(this.icon.dataset.targetUrl));
+                icon.addEventListener('mouseenter', () => clearTimeout(this.timers.hideIcon));
+                icon.addEventListener('mouseleave', this.#hideLinkIcon.bind(this));
+            }
+
+            this.icon = icon;
+            document.body.appendChild(this.icon);
+        }
+
+        #hideLinkIcon() {
+            this.timers.hideIcon = setTimeout(() => {
+                this.icon.style.display = 'none';
+                clearTimeout(this.timers.showIcon);
+            }, this.config.linkIconInteractionOnHover ? 300 : 600);
+        }
+
+        #getLinkElement(event) {
+            return event.target.closest('a[href]:not([href="#"])');
+        }
+
+        #sendDialogMessage(url) {
+            chrome.runtime.sendMessage({url, fromPanel: this.fromPanel});
+        }
+
+        #callDialog(event) {
+            let link = this.#getLinkElement(event);
+            if (link) {
+                event.preventDefault();
+                this.#sendDialogMessage(link.href);
+            }
+        };
+
+        #createIconStyle() {
             const style = document.createElement('style');
             style.textContent = `
                 .link-icon {
@@ -156,482 +547,214 @@
                     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
                     cursor: pointer;
                     z-index: 9999;
+                    transition: opacity 0.2s ease;
+                }
+            
+                .link-icon:hover {
+                    opacity: 0.9;
                 }
             `;
             document.head.appendChild(style);
         }
 
-        this.dialogEventListenerSet = true;
-
-        const getLinkElement = (event) => {
-                return event.target.closest('a[href]:not([href="#"])');
-            },
-            sendDialogMessage = (url) => chrome.runtime.sendMessage({url, fromPanel}),
-            callDialog = (event) => {
-                let link = getLinkElement(event);
-                if (link) {
-                    event.preventDefault();
-                    sendDialogMessage(link.href);
-                }
-            };
-    }
-
-    /**
-     * Prepares url for search, calls dailogTab function
-     * @param {String} engineId engine id of the engine to be used
-     * @param {int} selectionText the text to search
-     */
-    async function dialogTabSearch(engineId, selectionText) {
-        let searchRequest = await vivaldi.searchEngines.getSearchRequest(engineId, selectionText);
-        dialogTab(searchRequest.url);
-    }
-
-    /**
-     * Handle a potential keyboard shortcut (copy from KeyboardMachine)
-     * @param {number} id I don't know what this does, but it's an extra argument
-     * @param {String} combination written in the form (CTRL+SHIFT+ALT+KEY)
-     */
-    function keyCombo(id, combination) {
-        /** Open Default Search Engine in Dialog and search for selected text */
-        const searchForSelectedText = async () => {
-            let tabs = await chrome.tabs.query({active: true});
-            vivaldi.utilities.getSelectedText(tabs[0].id, (text) => dialogTabSearch(searchEngineUtils.defaultSearchId, text));
-        };
-
-        const SHORTCUTS = {
-            'Ctrl+Alt+Period': searchForSelectedText,
-            'Ctrl+Shift+F': searchForSelectedText,
-            Esc: () => removeDialog(Array.from(webviews.keys()).pop())
-        };
-
-        const customShortcut = SHORTCUTS[combination];
-        if (customShortcut) {
-            customShortcut();
-        }
-    }
-
-    /**
-     * removes the dialog
-     */
-    function removeDialog(webviewId) {
-        const data = webviews.get(webviewId);
-        if (data) {
-            chrome.tabs.query({}, (tabs) => {
-                const tab = tabs.find(tab => tab.vivExtData && tab.vivExtData.includes(`${webviewId}tabId`));
-                if (tab) chrome.tabs.remove(tab.id);
-            });
-
-            data.divContainer.remove();
-            chrome.tabs.onRemoved.removeListener(data.tabCloseListener);
-            webviews.delete(webviewId);
-        }
-    }
-
-    /**
-     * Checks if the current window is the correct window to show the dialog and then opens the dialog
-     * @param {string} linkUrl the url to load
-     * @param {boolean} fromPanel indicates whether the dialog is opened from a panel
-     */
-    function dialogTab(linkUrl, fromPanel = undefined) {
-        chrome.windows.getLastFocused((window) => {
-            if (window.id === vivaldiWindowId && window.state !== chrome.windows.WindowState.MINIMIZED) {
-                showDialog(linkUrl, fromPanel);
-            }
-        });
-    }
-
-    /**
-     * Opens a link in a dialog like display in the current visible tab
-     * @param {string} linkUrl the url to load
-     * @param {boolean} fromPanel indicates whether the dialog is opened from a panel
-     */
-    function showDialog(linkUrl, fromPanel) {
-        const dialogContainer = document.createElement('div'),
-            dialogTab = document.createElement('div'),
-            webview = document.createElement('webview'),
-            webviewId = `dialog-${getWebviewId()}`,
-            progressBar = document.createElement('div'),
-            optionsContainer = document.createElement('div');
-
-        if (fromPanel === undefined && webviews.size !== 0) {
-            fromPanel = Array.from(webviews.values()).pop().fromPanel;
-        }
-
-        webviews.set(webviewId, {
-            divContainer: dialogContainer,
-            webview: webview,
-            fromPanel: fromPanel
-        });
-
-        // remove dialogs when tab is closed without closing dialogs
-        if (!fromPanel) {
-            const tabId = Number(document.querySelector('.active.visible.webpageview webview').tab_id),
-                clearWebviews = (closedTabId) => {
-                    if (tabId === closedTabId) {
-                        webviews.forEach((view, key) => view.tabCloseListener === clearWebviews && removeDialog(key));
-                        chrome.tabs.onRemoved.removeListener(clearWebviews);
-                    }
-                };
-            webviews.get(webviewId).tabCloseListener = clearWebviews;
-            chrome.tabs.onRemoved.addListener(clearWebviews);
-        }
-
-        //#region dialogTab properties
-        dialogTab.setAttribute('class', 'dialog-tab');
-        dialogTab.style.width = 85 - 5 * webviews.size + '%';
-        dialogTab.style.height = 95 - 5 * webviews.size + '%';
-        //#endregion
-
-        //#region progressBar properties
-        progressBar.setAttribute('class', 'progress-bar');
-        progressBar.id = `progressBar-${webviewId}`;
-        //#endregion
-
-        //#region optionsContainer properties
-        optionsContainer.setAttribute('class', 'options-container');
-        optionsContainer.innerHTML = iconUtils.ellipsis;
-
-        let timeout;
-        optionsContainer.addEventListener('mouseover', function () {
-            if (optionsContainer.children.length === 1) {
-                optionsContainer.innerHTML = '';
-                showWebviewOptions(webviewId, optionsContainer);
-            }
-            clearTimeout(timeout);
-        });
-        optionsContainer.addEventListener('mouseleave', function () {
-            timeout = setTimeout(() => optionsContainer.innerHTML = iconUtils.ellipsis, 1500);
-        });
-        //#endregion
-
-        //#region webview properties
-        webview.id = webviewId;
-        webview.tab_id = `${webviewId}tabId`;
-        webview.setAttribute('src', linkUrl);
-
-        let progress = 0,
-            interval;
-
-        const clearProgressInterval = (loadStop) => {
-            if (interval) {
-                clearInterval(interval);
-                interval = undefined;
-            }
-            if (loadStop) {
-                const progressbar = document.getElementById(`progressBar-${webviewId}`);
-                progressbar.style.width = '100%';
-
-                setTimeout(() => {
-                    progress = 0;
-                    progressbar.style.visibility = 'hidden';
-                    progressbar.style.width = progress + '%';
-                }, 250);
+        debounce(fn, delay) {
+            let timer = null;
+            return (...args) => {
+                clearTimeout(timer);
+                timer = setTimeout(fn.bind(this, ...args), delay);
             }
         };
-
-        webview.addEventListener('loadstart', function () {
-            this.style.backgroundColor = 'var(--colorBorder)';
-            const progressbar = document.getElementById(`progressBar-${webviewId}`);
-            progressbar.style.visibility = 'visible';
-
-            if (!interval) {
-                interval = setInterval(() => {
-                    if (progress >= 100) {
-                        clearProgressInterval();
-                    } else {
-                        progress++;
-                        progressBar.style.width = progress + '%';
-                    }
-                }, 10);
-            }
-
-            const input = document.getElementById(`input-${this.id}`);
-            if (input !== null) {
-                input.value = this.src;
-            }
-        });
-        webview.addEventListener('loadstop', function () {
-            clearProgressInterval(true);
-        });
-        fromPanel && webview.addEventListener('mousedown', (event) => event.stopPropagation());
-        //#endregion
-
-        //#region dialogContainer properties
-        dialogContainer.setAttribute('class', 'dialog-container');
-
-        let stopEvent = (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-
-            if (event.target.id === `input-${webviewId}`) {
-                const inputElement = event.target;
-
-                // Calculate the cursor position based on the click location
-                const offsetX = event.clientX - inputElement.getBoundingClientRect().left;
-
-                // Create a canvas to measure text width
-                const context = document.createElement('canvas').getContext('2d');
-                context.font = window.getComputedStyle(inputElement).font;
-
-                // Measure the width of the text up to each character
-                let cursorPosition = 0,
-                    textWidth = 0;
-                for (let i = 0; i < inputElement.value.length; i++) {
-                    const charWidth = context.measureText(inputElement.value[i]).width;
-                    if (textWidth + charWidth > offsetX) {
-                        cursorPosition = i;
-                        break;
-                    }
-                    textWidth += charWidth;
-                    cursorPosition = i + 1;
-                }
-
-                // Manually focus the input element and set the cursor position
-                inputElement.focus({preventScroll: true});
-                inputElement.setSelectionRange(cursorPosition, cursorPosition);
-            }
-        };
-
-        fromPanel && document.body.addEventListener('pointerdown', stopEvent);
-
-        dialogContainer.addEventListener('click', function (event) {
-            if (event.target === this) {
-                fromPanel && document.body.removeEventListener('pointerdown', stopEvent);
-                removeDialog(webviewId);
-            }
-        });
-
-        //#endregion
-
-        dialogTab.appendChild(optionsContainer);
-        dialogTab.appendChild(progressBar);
-        dialogTab.appendChild(webview);
-
-        dialogContainer.appendChild(dialogTab);
-
-        // Get for current tab and append divContainer
-        fromPanel
-            ? document.querySelector('#browser').appendChild(dialogContainer)
-            : document.querySelector('.active.visible.webpageview').appendChild(dialogContainer);
     }
 
     /**
-     * Displays open in tab buttons and current url in input element
-     * @param {string} webviewId is the id of the webview
-     * @param {Object} thisElement the current instance divOptionContainer (div) element
+     * Utility class for adding and updating context menu items
      */
-    function showWebviewOptions(webviewId, thisElement) {
-        let inputId = `input-${webviewId}`,
-            data = webviews.get(webviewId),
-            webview = data ? data.webview : undefined;
-        if (webview && document.getElementById(inputId) === null) {
-            const input = document.createElement('input', 'text');
-
-            input.value = webview.src;
-            input.id = inputId;
-            input.setAttribute('class', 'dialog-input');
-
-            input.addEventListener('keydown', async function (event) {
-                if (event.key === 'Enter') {
-                    let value = input.value;
-                    if (
-                        value.startsWith('http://') ||
-                        value.startsWith('https://') ||
-                        value.startsWith('file://') ||
-                        value.startsWith('vivaldi://') ||
-                        value === 'about:blank'
-                    ) {
-                        webview.src = value;
-                    } else {
-                        const searchRequest = await vivaldi.searchEngines.getSearchRequest(defaultSearchId, value);
-                        webview.src = searchRequest.url;
-                    }
-                }
-            });
-
-            const fragment = document.createDocumentFragment(),
-                buttons = [
-                    {content: iconUtils.back, action: webview.back.bind(webview)},
-                    {content: iconUtils.forward, action: webview.forward.bind(webview)},
-                    {content: iconUtils.reload, action: webview.reload.bind(webview)},
-                    {
-                        content: iconUtils.readerView,
-                        action: showReaderView.bind(this, webview),
-                        cls: 'reader-view-toggle'
-                    },
-                    {content: iconUtils.newTab, action: openNewTab.bind(this, inputId, true)},
-                    {content: iconUtils.backgroundTab, action: openNewTab.bind(this, inputId, false)},
-                ];
-
-            buttons.forEach(button => fragment.appendChild(createOptionsButton(button.content, button.action, button.cls || '')));
-            fragment.appendChild(input);
-
-            thisElement.append(fragment);
-        }
-    }
-
-    /**
-     * Create a button with default style for the web view options.
-     * @param {Node | string} content the content of the button to display
-     * @param {Function} clickListenerCallback the click listeners callback function
-     * @param {string} cls optional additional class for the button
-     */
-    function createOptionsButton(content, clickListenerCallback, cls = '') {
-        const button = document.createElement('button');
-        button.setAttribute('class', `options-button ${cls}`.trim());
-        button.addEventListener('click', clickListenerCallback);
-
-        if (typeof content === 'string') {
-            button.innerHTML = content;
-        } else {
-            button.appendChild(content);
-        }
-
-        return button;
-    }
-
-    /**
-     * Returns a random, verified id.
-     */
-    function getWebviewId() {
-        let id;
-        do {
-            id = Math.floor(Math.random() * 1000 + 1);
-        } while (document.getElementById(`dialog-${id}`));
-        return id;
-    }
-
-    /**
-     * Sets the webviews content to a reader version
-     *
-     * @param {webview} webview the webview to update
-     */
-    function showReaderView(webview) {
-        if (webview.src.includes('https://clearthis.page/?u=')) {
-            webview.src = webview.src.replace('https://clearthis.page/?u=', '');
-        } else {
-            webview.src = `https://clearthis.page/?u=${webview.src}`;
-        }
-    }
-
-    /**
-     * Opens a new Chrome tab with specified active boolean value
-     * @param {string} inputId is the id of the input containing current url
-     * @param {boolean} active indicates whether the tab is active or not (background tab)
-     */
-    function openNewTab(inputId, active) {
-        const url = document.getElementById(inputId).value;
-        chrome.tabs.create({url: url, active: active});
-    }
-
     class SearchEngineUtils {
-        static CONTEXT_MENU_IDS = {
-            LINK: 'dialog-tab-link',
-            SEARCH: 'search-dialog-tab',
-            SELECT_SEARCH: 'select-search-dialog-tab'
-        };
 
-        openLinkCallback;
-        searchCallback;
-        createdContextMenuIds = [];
-        searchEngineCollection = [];
-        defaultSearchId;
-        privateSearchId;
-
-        constructor(openLinkCallback, searchCallback) {
+        /**
+         * Constructor for SearchEngineUtils
+         * @param {Function} openLinkCallback - Callback for opening links
+         * @param {Function} searchCallback - Callback for searching
+         * @param {Object} [config={}] - Configuration options
+         * @param {string} [config.menuPrefix] - Prefix for the context menu item
+         * @param {string} [config.linkMenuTitle] - Titel for the link menu
+         * @param {string} [config.searchMenuTitle] - title for the search menu
+         * @param {string} [config.selectSearchMenuTitle] - title for the select search menu
+         */
+        constructor(openLinkCallback, searchCallback, config = {}) {
             this.openLinkCallback = openLinkCallback;
             this.searchCallback = searchCallback;
 
-            // create a context menu item to call on a link
-            this.createContextMenuOption();
+            this.menuPrefix = config.menuPrefix;
+            this.linkMenuTitle = config.linkMenuTitle;
+            this.searchMenuTitle = config.searchMenuTitle;
+            this.selectSearchMenuTitle = config.selectSearchMenuTitle;
 
-            // create initial search engine context menus
-            this.updateSearchEnginesAndContextMenu();
+            this.createdContextMenuMap = new Map();
+            this.searchEngineCollection = [];
+            this.defaultSearchId = null;
+            this.privateSearchId = null;
 
-            // detect changes in search engines and recreate the context menus
+            // Cache static IDs for frequent access
+            this.LINK_ID = 'dialog-tab-link';
+            this.SEARCH_ID = 'search-dialog-tab';
+            this.SELECT_SEARCH_ID = 'select-search-dialog-tab';
+
+            this.#initialize();
+        }
+
+        /**
+         * Initializes the context menu and listeners
+         * @returns {Promise<void>}
+         */
+        async #initialize() {
+            // Create context menu items
+            this.#createContextMenuOption();
+
+            // Initialize search engines and context menus
+            this.#updateSearchEnginesAndContextMenu();
+
+            // Update context menus when search engines change
             vivaldi.searchEngines.onTemplateUrlsChanged.addListener(() => {
-                this.removeContextMenuSelectSearch();
-                this.updateSearchEnginesAndContextMenu();
+                this.#removeContextMenuSelectSearch();
+                this.#updateSearchEnginesAndContextMenu();
             });
         }
 
         /**
-         * Creates context menu items to open dialog tab
+         * Creates context menu items to open a dialog tab
          */
-        createContextMenuOption() {
+        #createContextMenuOption() {
             chrome.contextMenus.create({
-                id: SearchEngineUtils.CONTEXT_MENU_IDS.LINK,
-                title: '[Dialog Tab] Open Link',
+                id: this.LINK_ID,
+                title: `${this.menuPrefix} ${this.linkMenuTitle}`,
                 contexts: ['link']
             });
             chrome.contextMenus.create({
-                id: SearchEngineUtils.CONTEXT_MENU_IDS.SEARCH,
-                title: '[Dialog Tab] Search for "%s"',
+                id: this.SEARCH_ID,
+                title: `${this.menuPrefix} ${this.searchMenuTitle}`,
                 contexts: ['selection']
             });
             chrome.contextMenus.create({
-                id: SearchEngineUtils.CONTEXT_MENU_IDS.SELECT_SEARCH,
-                title: '[Dialog Tab] Search with',
+                id: this.SELECT_SEARCH_ID,
+                title: `${this.menuPrefix} ${this.selectSearchMenuTitle}`,
                 contexts: ['selection']
             });
 
             chrome.contextMenus.onClicked.addListener((itemInfo) => {
-                if (itemInfo.menuItemId === SearchEngineUtils.CONTEXT_MENU_IDS.LINK) {
-                    this.openLinkCallback(itemInfo.linkUrl);
-                } else if (itemInfo.menuItemId === SearchEngineUtils.CONTEXT_MENU_IDS.SEARCH) {
+                const {menuItemId, parentMenuItemId, linkUrl, selectionText} = itemInfo;
+
+                if (menuItemId === this.LINK_ID) {
+                    this.openLinkCallback(linkUrl);
+                } else if (menuItemId === this.SEARCH_ID) {
                     const engineId = window.incognito ? this.privateSearchId : this.defaultSearchId;
-                    this.searchCallback(engineId, itemInfo.selectionText);
-                } else if (itemInfo.parentMenuItemId === SearchEngineUtils.CONTEXT_MENU_IDS.SELECT_SEARCH) {
-                    const engineId = itemInfo.menuItemId.substr(itemInfo.parentMenuItemId.length);
-                    this.searchCallback(engineId, itemInfo.selectionText);
+                    this.searchCallback(engineId, selectionText);
+                } else if (parentMenuItemId === this.SELECT_SEARCH_ID) {
+                    const engineId = menuItemId.substr(parentMenuItemId.length);
+                    this.searchCallback(engineId, selectionText);
                 }
             });
         }
 
         /**
-         * updates the search engines and context menu
+         * Updates the search engines and context menu
          */
-        async updateSearchEnginesAndContextMenu() {
+        async #updateSearchEnginesAndContextMenu() {
             const searchEngines = await vivaldi.searchEngines.getTemplateUrls();
             this.searchEngineCollection = searchEngines.templateUrls;
             this.defaultSearchId = searchEngines.defaultSearch;
             this.privateSearchId = searchEngines.defaultPrivate;
 
-            this.createContextMenuSelectSearch();
+            this.#createContextMenuSelectSearch();
         }
 
         /**
-         * Updates sub-context menu items for select search engine menu item
+         * Removes sub-context menu items for select search engine menu item
          */
-        removeContextMenuSelectSearch() {
-            this.searchEngineCollection.forEach((engine) => {
-                if (this.createdContextMenuIds.includes(engine.guid)) {
-                    chrome.contextMenus.remove(SearchEngineUtils.CONTEXT_MENU_IDS.SELECT_SEARCH + engine.guid);
-                    this.createdContextMenuIds.splice(this.createdContextMenuIds.indexOf(engine.guid), 1);
-                }
+        #removeContextMenuSelectSearch() {
+            this.createdContextMenuMap.forEach((_, engineId) => {
+                const menuId = this.SELECT_SEARCH_ID + engineId;
+                chrome.contextMenus.remove(menuId);
             });
+
+            this.createdContextMenuMap.clear();
         }
 
         /**
          * Creates sub-context menu items for select search engine menu item
          */
-        createContextMenuSelectSearch() {
+        #createContextMenuSelectSearch() {
             this.searchEngineCollection.forEach((engine) => {
-                if (!this.createdContextMenuIds.includes(engine.guid)) {
+                if (!this.createdContextMenuMap.has(engine.guid)) {
                     chrome.contextMenus.create({
-                        id: SearchEngineUtils.CONTEXT_MENU_IDS.SELECT_SEARCH + engine.guid,
-                        parentId: SearchEngineUtils.CONTEXT_MENU_IDS.SELECT_SEARCH,
+                        id: this.SELECT_SEARCH_ID + engine.guid,
+                        parentId: this.SELECT_SEARCH_ID,
                         title: engine.name,
                         contexts: ['selection']
                     });
-                    this.createdContextMenuIds.push(engine.guid);
+                    this.createdContextMenuMap.set(engine.guid, true);
                 }
             });
         }
     }
 
+    class ProgressBar {
+        constructor(webviewId) {
+            this.webviewId = webviewId;
+            this.progress = 0;
+            this.interval = null;
+            this.element = this.#createProgressBar(webviewId);
+        }
+
+        #createProgressBar(webviewId) {
+            const progressBar = document.createElement('div');
+            progressBar.setAttribute('class', 'progress-bar');
+            progressBar.id = `progressBar-${webviewId}`;
+            return progressBar;
+        }
+
+        start() {
+            this.element.style.visibility = 'visible';
+            this.progress = 0;
+
+            if (!this.interval) {
+                this.interval = setInterval(() => {
+                    if (this.progress >= 100) {
+                        this.clear();
+                    } else {
+                        this.progress++;
+                        this.element.style.width = this.progress + '%';
+                    }
+                }, 10);
+            }
+        }
+
+        clear(loadStop = false) {
+            if (this.interval) {
+                clearInterval(this.interval);
+                this.interval = null;
+            }
+
+            if (loadStop) {
+                this.element.style.width = '100%';
+
+                setTimeout(() => {
+                    this.progress = 0;
+                    this.element.style.visibility = 'hidden';
+                    this.element.style.width = this.progress + '%';
+                }, 250);
+            }
+        }
+    }
+
+
+    /**
+     * Utility class to manage SVG icons
+     * @class
+     */
     class IconUtils {
-        // static icons
+
+        // Static icons
         static SVG = {
             ellipsis: '<svg xmlns="http://www.w3.org/2000/svg" height="2em" viewBox="0 0 448 512"><path d="M8 256a56 56 0 1 1 112 0A56 56 0 1 1 8 256zm160 0a56 56 0 1 1 112 0 56 56 0 1 1 -112 0zm216-56a56 56 0 1 1 0 112 56 56 0 1 1 0-112z"/></svg>',
             readerView: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M3 4h10v1H3zM3 6h10v1H3zM3 8h10v1H3zM3 10h6v1H3z"></path></svg>',
@@ -654,18 +777,34 @@
             fallback: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M125.7 160H176c17.7 0 32 14.3 32 32s-14.3 32-32 32H48c-17.7 0-32-14.3-32-32V64c0-17.7 14.3-32 32-32s32 14.3 32 32v51.2L97.6 97.6c87.5-87.5 229.3-87.5 316.8 0s87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3s-163.8-62.5-226.3 0L125.7 160z"/></svg>'
         }];
 
+        #initialized = false;
+        #iconMap = new Map();
+
+
         constructor() {
-            this._optionIcons = {...IconUtils.SVG};
-            setTimeout(() => this._initializeVivaldiIcons(), 1000);
+            this.#initializeStaticIcons();
         }
 
         /**
-         * initialize Vivaldi icons from the DOM or use fallback
+         * Initializes static icons
          */
-        _initializeVivaldiIcons() {
-            IconUtils.VIVALDI_BUTTONS.forEach(button => {
-                this._optionIcons[button.name] = this._getVivaldiButton(button.buttonName, button.fallback);
+        #initializeStaticIcons() {
+            Object.entries(IconUtils.SVG).forEach(([key, value]) => {
+                this.#iconMap.set(key, value);
             });
+        }
+
+        /**
+         * Initialize Vivaldi icons from the DOM or use fallback
+         */
+        #initializeVivaldiIcons() {
+            if (this.#initialized) return;
+
+            IconUtils.VIVALDI_BUTTONS.forEach(button => {
+                this.#iconMap.set(button.name, this.#getVivaldiButton(button.buttonName, button.fallback));
+            });
+
+            this.#initialized = true;
         }
 
         /**
@@ -674,38 +813,51 @@
          * @param {string} fallbackSVG - fallback svg if no icon is found
          * @returns {string} - the SVG as a string
          */
-        _getVivaldiButton(buttonName, fallbackSVG) {
+        #getVivaldiButton(buttonName, fallbackSVG) {
             const svg = document.querySelector(`.button-toolbar [name="${buttonName}"] svg`);
             return svg ? svg.cloneNode(true).outerHTML : fallbackSVG;
         }
 
+        /**
+         * Get icon by name
+         * @param {string} name - Name of the icon
+         * @returns {string} - Icon as SVG string
+         */
+        getIcon(name) {
+            if (!this.#initialized && IconUtils.VIVALDI_BUTTONS.some(btn => btn.name === name)) {
+                this.#initializeVivaldiIcons();
+            }
+
+            return this.#iconMap.get(name) || '';
+        }
 
         get ellipsis() {
-            return this._optionIcons.ellipsis;
+            return this.getIcon('ellipsis');
         }
 
         get back() {
-            return this._optionIcons.back;
+            return this.getIcon('back');
         }
 
         get forward() {
-            return this._optionIcons.forward;
+            return this.getIcon('forward');
         }
 
         get reload() {
-            return this._optionIcons.reload;
+            return this.getIcon('reload');
         }
 
         get readerView() {
-            return this._optionIcons.readerView;
+            return this.getIcon('readerView');
         }
 
         get newTab() {
-            return this._optionIcons.newTab;
+            return this.getIcon('newTab');
         }
 
         get backgroundTab() {
-            return this._optionIcons.backgroundTab;
+            return this.getIcon('backgroundTab');
         }
     }
-})();
+})
+();
