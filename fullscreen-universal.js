@@ -44,7 +44,7 @@
         }
     });
 
-    vivaldi.tabsPrivate.onKeyboardShortcut.addListener((id, combination) => combination === 'F11' && toggleFullScreen());
+    vivaldi.tabsPrivate.onKeyboardShortcut.addListener((id, combination) => combination === 'F11' && id === vivaldiWindowId && toggleFullScreen());
 
     let style = `
         .fullscreen-listener-enabled {
