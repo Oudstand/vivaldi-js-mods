@@ -35,8 +35,8 @@
             CONTEXT_MENU_CONFIG
         );
         KEYBOARD_SHORTCUTS = {
-            'Ctrl+Alt+Period': this.searchForSelectedText,
-            'Ctrl+Shift+F': this.searchForSelectedText,
+            'Ctrl+Alt+Period': this.searchForSelectedText.bind(this),
+            'Ctrl+Shift+F': this.searchForSelectedText.bind(this),
             Esc: () => {
                 if (!this.webviews.size) return;
 
