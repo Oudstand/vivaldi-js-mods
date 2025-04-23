@@ -320,9 +320,9 @@
 
                 const fragment = document.createDocumentFragment(),
                     buttons = [
-                        {content: this.iconUtils.back, action: webview.back.bind(webview)},
-                        {content: this.iconUtils.forward, action: webview.forward.bind(webview)},
-                        {content: this.iconUtils.reload, action: webview.reload.bind(webview)},
+                        {content: this.iconUtils.back, action: () => webview.back()},
+                        {content: this.iconUtils.forward, action: () => webview.forward()},
+                        {content: this.iconUtils.reload, action: () => webview.reload()},
                         {
                             content: this.iconUtils.readerView,
                             action: this.showReaderView.bind(this, webview),
