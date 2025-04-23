@@ -27,7 +27,6 @@
 
     class DialogMod {
         webviews = new Map();
-        websiteInjectionUtils = new WebsiteInjectionUtils(ICON_CONFIG);
         iconUtils = new IconUtils();
         searchEngineUtils = new SearchEngineUtils(
             (url) => this.dialogTab(url),
@@ -51,42 +50,29 @@
         };
 
         constructor() {
-            this.initDialogMod();
-        }
-
-        /**
-         * Initializes the mod
-         */
-        initDialogMod() {
             // Setup keyboard shortcuts
             vivaldi.tabsPrivate.onKeyboardShortcut.addListener(this.keyCombo.bind(this));
 
-            // inject detection of click observers
-            chrome.webNavigation.onCompleted.addListener((navigationDetails) => {
-                const {webview, fromPanel} = this.getWebviewConfig(navigationDetails);
-                this.websiteInjectionUtils.injectCode(webview, fromPanel, ICON_CONFIG);
-            });
-
-            // react on demand to open a dialog
-            chrome.runtime.onMessage.addListener((message) => {
-                if (message.url) {
-                    this.fromPanel = message.fromPanel;
-                    this.dialogTab(message.url, message.fromPanel);
-                }
-            });
+            new WebsiteInjectionUtils(
+                (navigationDetails) => this.getWebviewConfig(navigationDetails),
+                (url, fromPanel) => this.dialogTab(url, fromPanel),
+                ICON_CONFIG
+            );
         }
 
         /**
          * Finds the correct configuration for showing the dialog
          */
         getWebviewConfig(navigationDetails) {
-            // first dialog from the webpanel
-            let webview = document.querySelector(`.webpanel-content webview[src*="${navigationDetails.url}"]`);
-            if (webview) return {webview, fromPanel: true};
+            if (navigationDetails.frameType !== "outermost_frame") return {webview: null, fromPanel: false};
 
             // first dialog from the tab
-            webview = document.querySelector(`webview[tab_id="${navigationDetails.tabId}"]`);
+            let webview = document.querySelector(`webview[tab_id="${navigationDetails.tabId}"]`);
             if (webview) return {webview, fromPanel: false};
+
+            // first dialog from the webpanel
+            webview = document.querySelector(`.webpanel-content webview[src*="${navigationDetails.url}"]`);
+            if (webview) return {webview, fromPanel: true};
 
             // follow-up dialog from the webpanel
             webview = Array.from(this.webviews.values()).find(view => view.fromPanel)?.webview;
@@ -406,8 +392,21 @@
 
     class WebsiteInjectionUtils {
 
-        constructor(iconConfig) {
+        constructor(getWebviewConfig, openDialog, iconConfig) {
             this.iconConfig = JSON.stringify(iconConfig);
+
+            // inject detection of click observers
+            chrome.webNavigation.onCompleted.addListener((navigationDetails) => {
+                const {webview, fromPanel} = getWebviewConfig(navigationDetails);
+                webview && this.injectCode(webview, fromPanel);
+            });
+
+            // react on demand to open a dialog
+            chrome.runtime.onMessage.addListener((message) => {
+                if (message.url) {
+                    openDialog(message.url, message.fromPanel);
+                }
+            });
         }
 
         injectCode(webview, fromPanel) {
@@ -419,7 +418,7 @@
                 }
             `;
 
-            webview?.executeScript({code: instantiationCode});
+            webview.executeScript({code: instantiationCode});
         }
     }
 
