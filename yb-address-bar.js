@@ -70,6 +70,16 @@
             line-height: 26px;
             font-size: 14px;
         }
+
+        .UrlField--IsEmpty:has(#urlFieldInput:not(:focus)) {
+            #urlFieldInput {
+                opacity: 0;
+            }
+
+            .UrlFragments {
+                opacity: 1;
+            }
+        }
     `;
 
     class YBAddressBar {
@@ -89,6 +99,7 @@
         #createUrlFieldMutationObserver() {
             const urlFieldMutationObserver = new MutationObserver(() => {
                 this.#placeYBDomainButton();
+                this.#placeYBTitle();
             });
             urlFieldMutationObserver.observe(this.#urlFieldInput, {
                 attributes: true,
