@@ -64,7 +64,7 @@
     if (bookmarkBarPadding) {
         style += `
             .fullscreen-listener-enabled .bookmark-bar {
-                height: auto;
+                height: calc(30px + ${bookmarkBarPadding} + ${bookmarkBarPadding} / 2) !important;
                 padding-top: ${bookmarkBarPadding};
                 padding-bottom: calc(${bookmarkBarPadding} / 2);
             }
