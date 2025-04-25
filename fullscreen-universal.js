@@ -4,13 +4,14 @@
  */
 (function checkWebViewForFullscreen() {
     const webView = document.querySelector('#webview-container'),
-        hidePanels = true, // set to false to not hide the panels
         bookmarkBarPadding = '6px', // set to '0px' to remove the padding around the bookmark bar
         showDelay = 125, // set to 0 to remove the delay
         hideDelay = 250, // set to 0 to remove the delay
         showAddressBarOnFocus = true, // shows the address bar on a new tab or if in focus - set to false to disable the feature
         showAddressBarPadding = 15, // moves the address bar on a new tab or if in focus to - positive and negative values are allowed
-        updateHoverDivSize = true; // decreases the size for the hover divs in fullscreen mode - set ti false to disable the feature
+        updateHoverDivSize = true, // decreases the size for the hover divs in fullscreen mode - set ti false to disable the feature
+        hidePanels = true, // set to false to not hide the panels
+        hideTabs = true; // set to false to not hide the tabs - currently only works with vertical tabs
 
     if (!webView) {
         setTimeout(checkWebViewForFullscreen, 1337);
@@ -247,13 +248,18 @@
     }
 
     function generalCSS() {
-        return `
+        let css = `
             #header, .mainbar, .bookmark-bar, #panels-container {
                 transition: transform .5s, opacity .5s ease-in-out !important;
             }
 
             #header, .mainbar {
                 z-index: 8;
+            }
+            
+            .mainbar {
+                position: absolute;
+                width: 100%;
             }
 
             .bookmark-bar  {
@@ -276,20 +282,8 @@
                 right: 0;
 
                 .inner {
-                    position: unset;
-
-                    #webview-container {
-                        position: fixed !important;
-                        top: 0;
-                        left: 0;
-                        right: 0;
-                        bottom: 0;
-                    }
+                    position: unset;                  
                 }
-            }
-
-            #panels-container {
-                position: absolute !important;
             }
 
             .extensionIconPopupMenu, .button-popup {
@@ -304,6 +298,16 @@
                 transition: visibility 0.5s ease-in-out;
             }
         `;
+
+        if (hidePanels) {
+            css += `
+            #panels-container {
+                position: absolute !important;
+            }
+            `;
+        }
+
+        return css;
     }
 
     function topCSS() {
@@ -395,10 +399,11 @@
 
     function leftCSS() {
         const leftElements = [];
-        let width = 0,
+        let css = '',
+            width = 0,
             tabbarWrapper;
 
-        if (tabBarPosition === 'left') {
+        if (hideTabs && tabBarPosition === 'left') {
             leftElements.push('.tabbar-wrapper');
             tabbarWrapper = document.querySelector('.tabbar-wrapper');
             width += tabbarWrapper.offsetWidth;
@@ -413,7 +418,7 @@
             return '';
         }
 
-        let css = `
+        css += `
             &.hidden-left {
                 ${leftElements.join(', ')} {
                     transform: translateX(-${width}px);
@@ -450,7 +455,7 @@
         let width = 0,
             tabbarWrapper;
 
-        if (tabBarPosition === 'right') {
+        if (hideTabs && tabBarPosition === 'right') {
             rightElements.push('.tabbar-wrapper');
             tabbarWrapper = document.querySelector('.tabbar-wrapper');
             width += tabbarWrapper.offsetWidth;
