@@ -7,6 +7,7 @@
         bookmarkBarPadding = '6px', // set to '0px' to remove the padding around the bookmark bar
         showDelay = 125, // set to 0 to remove the delay
         hideDelay = 250, // set to 0 to remove the delay
+        alwaysShowAddressBar = false, // always shows the address bar - set to true to enable the feature
         showAddressBarOnFocus = true, // shows the address bar on a new tab or if in focus - set to false to disable the feature
         showAddressBarPadding = 15, // moves the address bar on a new tab or if in focus to - positive and negative values are allowed
         updateHoverDivSize = true, // decreases the size for the hover divs in fullscreen mode - set ti false to disable the feature
@@ -346,10 +347,11 @@
             }
         `;
 
-        if (showAddressBarOnFocus && addressBarTop) {
-            css += `
+        if (addressBarTop) {
+            if (alwaysShowAddressBar || showAddressBarOnFocus) {
+                css += `
                 &.hidden-top {
-                    #browser:has(.internal-page .startpage .SpeedDialView), #browser:has(.internal-page .startpage .Dashboard), #browser:has(.UrlBar-AddressField:focus-within) {
+                    ${!alwaysShowAddressBar ? '#browser:has(.internal-page .startpage .SpeedDialView), #browser:has(.internal-page .startpage .Dashboard), #browser:has(.UrlBar-AddressField:focus-within) {' : ''}
                         .mainbar {
                             opacity: 1;
 
@@ -361,12 +363,11 @@
                                 width: 50vw !important;
                             }
                         }
-                    }
+                    ${!alwaysShowAddressBar ? '}' : ''}
                 }
             `;
-        }
+            }
 
-        if (addressBarTop) {
             if (bookmarksTop) {
                 css += `
                     .bookmark-bar-top-off .mainbar {
@@ -539,26 +540,6 @@
             }
         `;
 
-        if (showAddressBarOnFocus && !addressBarTop) {
-            css += `
-                &.hidden-bottom {
-                    #browser:has(.internal-page .startpage), #browser:has(.UrlBar-AddressField:focus-within) {
-                        .mainbar {
-                            opacity: 1;
-
-                            .UrlBar-AddressField {
-                                position: absolute;
-                                bottom: ${getHeight(mainBar) + 10 + showAddressBarPadding}px;
-                                left: 25vw;
-                                right: 25vw;
-                                width: 50vw !important;
-                            }
-                        }
-                    }
-                }
-            `;
-        }
-
         if (tabBarPosition === 'bottom') {
             css += `
                 #footer {
@@ -573,6 +554,26 @@
                     margin-bottom: ${getHeight(footer)}px;
                 }
             `;
+
+            if (alwaysShowAddressBar || showAddressBarOnFocus) {
+                css += `
+                &.hidden-bottom {
+                   ${!alwaysShowAddressBar ? '#browser:has(.internal-page .startpage), #browser:has(.UrlBar-AddressField:focus-within) {' : ''}
+                        .mainbar {
+                            opacity: 1;
+
+                            .UrlBar-AddressField {
+                                position: absolute;
+                                bottom: ${getHeight(mainBar) + 10 + showAddressBarPadding}px;
+                                left: 25vw;
+                                right: 25vw;
+                                width: 50vw !important;
+                            }
+                        }
+                   ${!alwaysShowAddressBar ? '}' : ''}
+                }
+            `;
+            }
 
             if (!bookmarksTop) {
                 css += `
