@@ -10,7 +10,7 @@
         alwaysShowAddressBar = false, // always shows the address bar - set to true to enable the feature
         showAddressBarOnFocus = true, // shows the address bar on a new tab or if in focus - set to false to disable the feature
         showAddressBarPadding = 15, // moves the address bar on a new tab or if in focus to - positive and negative values are allowed
-        updateHoverDivSize = true, // decreases the size for the hover divs in fullscreen mode - set ti false to disable the feature
+        updateHoverDivSize = false, // decreases the size for the hover divs in fullscreen mode - set ti false to disable the feature
         hidePanels = true, // set to false to not hide the panels
         hideTabs = true; // set to false to not hide the tabs - currently only works with vertical tabs
 
