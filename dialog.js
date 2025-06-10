@@ -412,7 +412,7 @@
         injectCode(webview, fromPanel) {
             const handler = WebsiteLinkInteractionHandler.toString(),
                 instantiationCode = `
-                if (!this.dialogEventListenerSet){
+                if (!this.dialogEventListenerSet) {
                     new (${handler})(${fromPanel}, ${this.iconConfig});
                     this.dialogEventListenerSet = true;
                 }
