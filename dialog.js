@@ -66,13 +66,9 @@
         getWebviewConfig(navigationDetails) {
             if (navigationDetails.frameType !== "outermost_frame") return {webview: null, fromPanel: false};
 
-            // first dialog from the tab
+            // first dialog from tab or webpanel
             let webview = document.querySelector(`webview[tab_id="${navigationDetails.tabId}"]`);
-            if (webview) return {webview, fromPanel: false};
-
-            // first dialog from the webpanel
-            webview = document.querySelector(`.webpanel-content webview[src*="${navigationDetails.url}"]`);
-            if (webview) return {webview, fromPanel: true};
+            if (webview) return {webview, fromPanel: webview.name === 'vivaldi-webpanel'};
 
             // follow-up dialog from the webpanel
             webview = Array.from(this.webviews.values()).find(view => view.fromPanel)?.webview;
