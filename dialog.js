@@ -48,6 +48,9 @@
                 webviewData && this.removeDialog(webviewData.webview.id);
             }
         };
+        // 'https://clearthis.page/?u='; stopped service?
+        // change also in dialog.css => &:has(webview[src^="READER_VIEW_URL"]) .reader-view-toggle
+        READER_VIEW_URL = 'https://app.web-highlights.com/reader/open-website-in-reader-mode?url=';
 
         constructor() {
             // Setup keyboard shortcuts
@@ -198,7 +201,7 @@
                 clearTimeout(timeout);
             });
             optionsContainer.addEventListener('mouseleave', () => {
-                timeout = setTimeout(() => optionsContainer.innerHTML = this.iconUtils.ellipsis, 1500);
+//                timeout = setTimeout(() => optionsContainer.innerHTML = this.iconUtils.ellipsis, 1500);
             });
             //#endregion
 
@@ -368,10 +371,10 @@
          * @param {webview} webview the webview to update
          */
         showReaderView(webview) {
-            if (webview.src.includes('https://clearthis.page/?u=')) {
-                webview.src = webview.src.replace('https://clearthis.page/?u=', '');
+            if (webview.src.includes(this.READER_VIEW_URL)) {
+                webview.src = webview.src.replace(this.READER_VIEW_URL, '');
             } else {
-                webview.src = `https://clearthis.page/?u=${webview.src}`;
+                webview.src = this.READER_VIEW_URL + webview.src;
             }
         }
 
