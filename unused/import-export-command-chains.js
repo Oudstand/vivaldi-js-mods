@@ -424,27 +424,6 @@
     },
   };
 
-  const commands = await getCommands();
-
-  async function getCommands() {
-    const response = await fetch(chrome.runtime.getURL('bundle.js'));
-    const bundleScript = await response.text();
-    const matches = Array.from(bundleScript.matchAll(/category\s*:\s*"([^"]+)",[\s\S]+?guid\s*:\s*"([^"]+)",[\s\S]+?\("(([^"]+)"\s*,\s*")?([^"]+)"\)/g));
-
-    const commands = {};
-    matches.forEach(match => {
-      commands[match[2]] = {
-        category: match[1],
-        key: match[2],
-        message: match[5],
-        messageType: match[4],
-        label: gnoh.i18n.getMessage(match[5], match[4]),
-      };
-    });
-
-    return commands;
-  }
-
   function highlightJson(element, text) {
     CSS.highlights.delete('json-number');
     CSS.highlights.delete('json-bool');
@@ -859,7 +838,7 @@
 
     const chainedCommandItemValue = gnoh.createElement('div', {
       class: 'chained-command-item-value',
-      text: commands[chain.key]?.label || chain.label || '',
+      text: chain.label || '',
     }, chainedCommandItemTitle);
 
     if (typeof chain.param !== 'undefined') {
