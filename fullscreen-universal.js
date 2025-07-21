@@ -251,7 +251,7 @@
     function generalCSS() {
         let css = `
             #header, .mainbar, .bookmark-bar, #panels-container {
-                transition: transform .5s, opacity .5s ease-in-out !important;
+                transition: transform .5s, opacity .5s ease-in-out, visibility .5s ease-in-out !important;
             }
 
             #header, .mainbar {
@@ -424,6 +424,7 @@
                 ${leftElements.join(', ')} {
                     transform: translateX(-${width}px);
                     opacity: 0;
+                    visibility: hidden;
                 }
             }
 
@@ -476,6 +477,7 @@
                 ${rightElements.join(', ')} {
                     transform: translateX(${width}px);
                     opacity: 0;
+                    visibility: hidden;
                 }
             }
 
