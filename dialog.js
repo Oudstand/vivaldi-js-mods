@@ -50,6 +50,7 @@
         };
         // 'https://clearthis.page/?u='; stopped service?
         // change also in dialog.css => &:has(webview[src^="READER_VIEW_URL"]) .reader-view-toggle
+        // alternative => https://www.smry.ai/proxy?url=
         READER_VIEW_URL = 'https://app.web-highlights.com/reader/open-website-in-reader-mode?url=';
 
         constructor() {
