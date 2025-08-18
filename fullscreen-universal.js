@@ -396,7 +396,7 @@
         let css = `
             &.hidden-top {
                 ${topElementsSelector} {
-                    transform: translateY(calc(var(--fs-top-offset) * -1));
+                    transform: translateY(calc(var(--fs-top-offset, 0px) * -1));
                     opacity: 0;
                 }
             }
@@ -416,7 +416,7 @@
 
                             .UrlBar-AddressField {
                                 position: absolute;
-                                top: calc(var(--fs-top-offset) + ${showAddressBarPadding}px);
+                                top: calc(var(--fs-top-offset, 0px) + ${showAddressBarPadding}px);
                                 left: 25vw;
                                 right: 25vw;
                                 width: 50vw !important;
@@ -439,7 +439,7 @@
             if (tabBarPosition === 'top') {
                 css += `
                     .mainbar {
-                        margin-top: var(--fs-header-height);
+                        margin-top: var(--fs-header-height, 0px);
                     }
                 `;
             }
@@ -449,7 +449,7 @@
             css += `
                 .bookmark-bar {
                     top: 0;
-                    margin-top: calc(var(--fs-top-offset) - var(--fs-bookmark-bar-height));
+                    margin-top: calc(var(--fs-top-offset, 0px) - var(--fs-bookmark-bar-height, 0px));
                 }
             `;
         }
@@ -576,7 +576,7 @@
         let css = `
             &.hidden-bottom {
                 ${bottomElements.join(', ')} {
-                    transform: translateY(var(--fs-bottom-offset));
+                    transform: translateY(var(--fs-bottom-offset, 0px));
                     opacity: 0;
                 }
             }
@@ -597,7 +597,7 @@
         if (!addressBarTop) {
             css += `
                 .mainbar {
-                    margin-bottom: var(--fs-footer-height);
+                    margin-bottom: var(--fs-footer-height, 0px);
                 }
             `;
 
@@ -610,7 +610,7 @@
 
                             .UrlBar-AddressField {
                                 position: absolute;
-                                bottom: calc(var(--fs-main-bar-height) + 10px + ${showAddressBarPadding}px);
+                                bottom: calc(var(--fs-main-bar-height, 0px) + 10px + ${showAddressBarPadding}px);
                                 left: 25vw;
                                 right: 25vw;
                                 width: 50vw !important;
@@ -634,7 +634,7 @@
         if (!bookmarksTop) {
             css += `
                 .bookmark-bar {
-                    bottom: calc(var(--fs-footer-height) + ${(!addressBarTop ? 'var(--fs-main-bar-height)' : '0px')});
+                    bottom: calc(var(--fs-footer-height, 0px) + ${!addressBarTop ? 'var(--fs-main-bar-height, 0px)' : '0px'});
                     margin-bottom: 0;
                 }
             `;
