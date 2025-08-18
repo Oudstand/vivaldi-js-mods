@@ -12,7 +12,8 @@
         showAddressBarPadding = 15, // moves the address bar on a new tab or if in focus to - positive and negative values are allowed
         updateHoverDivSize = false, // decreases the size for the hover divs in fullscreen mode - set ti false to disable the feature
         hidePanels = true, // set to false to not hide the panels
-        hideTabs = true; // set to false to not hide the tabs - currently only works with vertical tabs
+        hideTabs = true, // set to false to not hide the tabs - currently only works with vertical tabs
+        useTwoLevelTabStack = false; // set to true if you use two level tab stack to recalculate height
 
     if (!webView) {
         setTimeout(checkWebViewForFullscreen, 1337);
@@ -26,18 +27,21 @@
         mainBar = document.querySelector('.mainbar'),
         bookmarkBar = document.querySelector('.bookmark-bar'),
         panelsContainer = document.querySelector('#panels-container'),
-        tabBarClassList = document.querySelector('#tabs-tabbar-container').classList,
+        tabBarContainer = document.querySelector('#tabs-tabbar-container'),
         panelsLeft = document.querySelector('#panels-container').classList.contains('left'),
-        tabBarPosition = positions.find(cls => tabBarClassList.contains(cls)),
+        tabBarPosition = positions.find(cls => tabBarContainer.classList.contains(cls)),
         addressBarTop = browser.classList.contains('address-top'),
-        bookmarksTop = browser.classList.contains('bookmark-bar-top');
+        bookmarksTop = browser.classList.contains('bookmark-bar-top'),
+        footer = document.querySelector('#footer');
 
     let fullscreenEnabled,
         showTopTimeout,
         showLeftTimeout,
         showRightTimeout,
         showBottomTimeout,
-        hideTimeout;
+        hideTimeout,
+        subcontainerObserver,
+        heightsRAF = null;
 
     chrome.storage.local.get('fullScreenModEnabled').then((value) => {
         fullscreenEnabled = value.fullScreenModEnabled || value.fullScreenModEnabled == undefined;
@@ -116,6 +120,8 @@
 
         if (updateHoverDivSize) addEventListener('resize', updateHoverDivs);
 
+        startSubcontainerObserver();
+        scheduleHeights();
         hide();
     }
 
@@ -147,6 +153,7 @@
 
         if (updateHoverDivSize) removeEventListener('resize', updateHoverDivs);
 
+        stopSubcontainerObserver();
         show();
     }
 
@@ -248,6 +255,70 @@
         return hoverDiv;
     }
 
+    function startSubcontainerObserver() {
+        if (!useTwoLevelTabStack || !tabBarContainer) return;
+
+        subcontainerObserver = new MutationObserver(mutations => {
+            for (const mutation of mutations) {
+                const hit = [...mutation.addedNodes, ...mutation.removedNodes].some(node => node.nodeType === Node.ELEMENT_NODE && node.id === 'tabs-subcontainer');
+
+                if (hit) {
+                    scheduleHeights();
+                    break;
+                }
+            }
+        });
+
+        subcontainerObserver.observe(tabBarContainer, {childList: true});
+        addEventListener('resize', scheduleHeights, {passive: true});
+    }
+
+    function stopSubcontainerObserver() {
+        if (subcontainerObserver) {
+            subcontainerObserver.disconnect();
+            subcontainerObserver = null;
+        }
+        if (heightsRAF) {
+            cancelAnimationFrame(heightsRAF);
+            heightsRAF = null;
+        }
+    }
+
+    function scheduleHeights() {
+        if (heightsRAF) return;
+        heightsRAF = requestAnimationFrame(() => {
+            heightsRAF = null;
+            calculateHeights();
+        });
+    }
+
+    function calculateHeights() {
+        let topOffset = 0;
+        let bottomOffset = 0;
+
+        const headerHeight = getHeight(header);
+        const mainBarHeight = getHeight(mainBar);
+        const bookmarkBarHeight = getHeight(bookmarkBar);
+        const footerHeight = getHeight(footer);
+
+        // Top
+        if (tabBarPosition === 'top' || !addressBarTop) topOffset += headerHeight;
+        if (addressBarTop) topOffset += mainBarHeight;
+        if (bookmarksTop && bookmarkBar) topOffset += bookmarkBarHeight;
+
+        // Bottom
+        if (footer.childNodes.length) bottomOffset += footerHeight;
+        if (!addressBarTop) bottomOffset += mainBarHeight;
+        if (!bookmarksTop && bookmarkBar) bottomOffset += bookmarkBarHeight;
+
+        app.style.setProperty('--fs-top-offset', topOffset + 'px');
+        app.style.setProperty('--fs-bottom-offset', bottomOffset + 'px');
+        app.style.setProperty('--fs-header-height', headerHeight + 'px');
+        app.style.setProperty('--fs-main-bar-height', mainBarHeight + 'px');
+        app.style.setProperty('--fs-bookmark-bar-height', bookmarkBarHeight + 'px');
+        app.style.setProperty('--fs-footer-height', footerHeight + 'px');
+    }
+
     function generalCSS() {
         let css = `
             #header, .mainbar, .bookmark-bar, #panels-container {
@@ -313,31 +384,19 @@
 
     function topCSS() {
         const topElements = [];
-        let height = 0;
 
-        if (tabBarPosition === 'top' || !addressBarTop) {
-            topElements.push('#header');
-            height += getHeight(header);
-        }
+        if (tabBarPosition === 'top' || !addressBarTop) topElements.push('#header');
+        if (addressBarTop) topElements.push('.mainbar');
+        if (bookmarksTop && bookmarkBar) topElements.push('.bookmark-bar');
 
-        if (addressBarTop) {
-            topElements.push('.mainbar');
-            height += getHeight(mainBar);
-        }
+        if (topElements.length === 0) return '';
 
-        if (bookmarksTop && bookmarkBar) {
-            topElements.push('.bookmark-bar');
-            height += getHeight(bookmarkBar);
-        }
-
-        if (topElements.length === 0) {
-            return '';
-        }
+        const topElementsSelector = topElements.join(', ');
 
         let css = `
             &.hidden-top {
-                ${topElements.join(', ')} {
-                    transform: translateY(-${height}px);
+                ${topElementsSelector} {
+                    transform: translateY(calc(var(--fs-top-offset) * -1));
                     opacity: 0;
                 }
             }
@@ -357,7 +416,7 @@
 
                             .UrlBar-AddressField {
                                 position: absolute;
-                                top: ${height + showAddressBarPadding}px;
+                                top: calc(var(--fs-top-offset) + ${showAddressBarPadding}px);
                                 left: 25vw;
                                 right: 25vw;
                                 width: 50vw !important;
@@ -380,7 +439,7 @@
             if (tabBarPosition === 'top') {
                 css += `
                     .mainbar {
-                        margin-top: ${getHeight(header)}px;
+                        margin-top: var(--fs-header-height);
                     }
                 `;
             }
@@ -390,7 +449,7 @@
             css += `
                 .bookmark-bar {
                     top: 0;
-                    margin-top: ${height - getHeight(bookmarkBar)}px;
+                    margin-top: calc(var(--fs-top-offset) - var(--fs-bookmark-bar-height));
                 }
             `;
         }
@@ -506,33 +565,18 @@
     }
 
     function bottomCSS() {
-        const bottomElements = [],
-            footer = document.querySelector('#footer');
-        let height = 0;
+        const bottomElements = [];
 
-        if (footer.childNodes.length) {
-            bottomElements.push('#footer');
-            height += getHeight(footer);
-        }
+        if (footer.childNodes.length) bottomElements.push('#footer');
+        if (!addressBarTop) bottomElements.push('.mainbar');
+        if (!bookmarksTop && bookmarkBar) bottomElements.push('.bookmark-bar');
 
-        if (!addressBarTop) {
-            bottomElements.push('.mainbar');
-            height += getHeight(mainBar);
-        }
-
-        if (!bookmarksTop && bookmarkBar) {
-            bottomElements.push('.bookmark-bar');
-            height += getHeight(bookmarkBar);
-        }
-
-        if (bottomElements.length === 0) {
-            return '';
-        }
+        if (bottomElements.length === 0) return '';
 
         let css = `
             &.hidden-bottom {
                 ${bottomElements.join(', ')} {
-                    transform: translateY(${height}px);
+                    transform: translateY(var(--fs-bottom-offset));
                     opacity: 0;
                 }
             }
@@ -553,7 +597,7 @@
         if (!addressBarTop) {
             css += `
                 .mainbar {
-                    margin-bottom: ${getHeight(footer)}px;
+                    margin-bottom: var(--fs-footer-height);
                 }
             `;
 
@@ -566,7 +610,7 @@
 
                             .UrlBar-AddressField {
                                 position: absolute;
-                                bottom: ${getHeight(mainBar) + 10 + showAddressBarPadding}px;
+                                bottom: calc(var(--fs-main-bar-height) + 10px + ${showAddressBarPadding}px);
                                 left: 25vw;
                                 right: 25vw;
                                 width: 50vw !important;
@@ -590,7 +634,7 @@
         if (!bookmarksTop) {
             css += `
                 .bookmark-bar {
-                    bottom: ${getHeight(footer) + (!addressBarTop ? getHeight(mainBar) : 0)}px;
+                    bottom: calc(var(--fs-footer-height) + ${(!addressBarTop ? 'var(--fs-main-bar-height)' : '0px')});
                     margin-bottom: 0;
                 }
             `;
