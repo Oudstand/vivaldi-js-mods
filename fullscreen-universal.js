@@ -411,7 +411,7 @@
                 css += `
                 &.hidden-top {
                     ${!alwaysShowAddressBar ? '#browser:has(.internal-page .startpage .SpeedDialView), #browser:has(.internal-page .startpage .Dashboard), #browser:has(.UrlBar-AddressField:focus-within) {' : ''}
-                        .mainbar {
+                        .mainbar:has(.UrlBar-AddressField), #header:has(.UrlBar-AddressField) {
                             opacity: 1;
 
                             .UrlBar-AddressField {
