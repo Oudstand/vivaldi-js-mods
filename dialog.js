@@ -858,5 +858,4 @@
             return this.getIcon('backgroundTab');
         }
     }
-})
-();
+})();
