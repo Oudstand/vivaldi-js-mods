@@ -62,6 +62,10 @@
             return document.querySelector('#panels-container').classList.contains('left');
         }
 
+        get panelsRight() {
+            return document.querySelector('#panels-container').classList.contains('right');
+        }
+
         get footer() {
             return document.querySelector('#footer');
         }
@@ -156,7 +160,7 @@
             this.destroyHoverDivs();
             this.hoverDivTop = this.createHorizontalHoverDiv('top');
             this.hoverDivLeft = (hidePanels && this.panelsLeft) || this.tabBarPosition === 'left' ? this.createVerticalHoverDiv('left') : undefined;
-            this.hoverDivRight = (hidePanels && !this.panelsLeft) || this.tabBarPosition === 'right' ? this.createVerticalHoverDiv('right') : undefined;
+            this.hoverDivRight = (hidePanels && this.panelsRight) || this.tabBarPosition === 'right' ? this.createVerticalHoverDiv('right') : undefined;
             this.hoverDivBottom = !this.addressBarTop || this.tabBarPosition === 'bottom' || !this.bookmarksTop || document.querySelector('#footer').childNodes.length ? this.createHorizontalHoverDiv('bottom') : undefined;
         }
 
@@ -575,6 +579,14 @@
                 `;
             }
 
+            if (this.panelsLeft) {
+                css += `
+                    &.hidden-left .panel-group {
+                        pointer-events: none;
+                    }
+                `;
+            }
+
             return css;
         }
 
@@ -589,7 +601,7 @@
                 width += tabBarWrapper.offsetWidth;
             }
 
-            if (hidePanels && !this.panelsLeft) {
+            if (hidePanels && this.panelsRight) {
                 rightElements.push('#panels-container');
                 width += this.panelsContainer.offsetWidth;
             }
@@ -617,13 +629,21 @@
                     .tabbar-wrapper {
                         position: absolute;
                         top: 0;
-                        right: ${!this.panelsLeft ? this.panelsContainer.offsetWidth : 0}px;
+                        right: ${this.panelsRight ? this.panelsContainer.offsetWidth : 0}px;
                         z-index: 1;
                         transition: transform .5s, opacity .5s ease-in-out !important;
     
                         &  > .tabbar-wrapper {
                             position: static;
                         }
+                    }
+                `;
+            }
+
+            if (this.panelsRight) {
+                css += `
+                    &.hidden-right .panel-group {
+                        pointer-events: none;
                     }
                 `;
             }
