@@ -26,62 +26,6 @@
     class FullscreenMod {
         positions = ['top', 'bottom', 'left', 'right']
 
-        get app() {
-            return document.querySelector('#app');
-        }
-
-        get browser() {
-            return document.querySelector('#browser');
-        }
-
-        get webView() {
-            return document.querySelector('#webview-container')
-        }
-
-        get header() {
-            return document.querySelector('#header');
-        }
-
-        get mainBar() {
-            return document.querySelector('.mainbar');
-        }
-
-        get bookmarkBar() {
-            return document.querySelector('.bookmark-bar');
-        }
-
-        get panelsContainer() {
-            return document.querySelector('#panels-container');
-        }
-
-        get tabBarContainer() {
-            return document.querySelector('#tabs-tabbar-container');
-        }
-
-        get panelsLeft() {
-            return document.querySelector('#panels-container').classList.contains('left');
-        }
-
-        get panelsRight() {
-            return document.querySelector('#panels-container').classList.contains('right');
-        }
-
-        get footer() {
-            return document.querySelector('#footer');
-        }
-
-        get tabBarPosition() {
-            return this.positions.find(cls => this.tabBarContainer.classList.contains(cls));
-        }
-
-        get addressBarTop() {
-            return this.browser.classList.contains('address-top');
-        }
-
-        get bookmarksTop() {
-            return this.browser.classList.contains('bookmark-bar-top');
-        }
-
         fullscreenEnabled;
 
         hoverDivTop;
@@ -728,6 +672,62 @@
             }
 
             return css;
+        }
+
+        get app() {
+            return document.querySelector('#app');
+        }
+
+        get browser() {
+            return document.querySelector('#browser');
+        }
+
+        get webView() {
+            return document.querySelector('#webview-container')
+        }
+
+        get header() {
+            return document.querySelector('#header');
+        }
+
+        get mainBar() {
+            return document.querySelector('.mainbar');
+        }
+
+        get bookmarkBar() {
+            return document.querySelector('.bookmark-bar');
+        }
+
+        get panelsContainer() {
+            return document.querySelector('#panels-container');
+        }
+
+        get tabBarContainer() {
+            return document.querySelector('#tabs-tabbar-container');
+        }
+
+        get panelsLeft() {
+            return document.querySelector('#panels-container').classList.contains('left');
+        }
+
+        get panelsRight() {
+            return document.querySelector('#panels-container').classList.contains('right');
+        }
+
+        get footer() {
+            return document.querySelector('#footer');
+        }
+
+        get tabBarPosition() {
+            return this.positions.find(cls => this.tabBarContainer.classList.contains(cls));
+        }
+
+        get addressBarTop() {
+            return this.browser.classList.contains('address-top');
+        }
+
+        get bookmarksTop() {
+            return this.browser.classList.contains('bookmark-bar-top');
         }
 
         getHeight(el) {
