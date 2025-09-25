@@ -202,7 +202,7 @@
                 clearTimeout(timeout);
             });
             optionsContainer.addEventListener('mouseleave', () => {
-//                timeout = setTimeout(() => optionsContainer.innerHTML = this.iconUtils.ellipsis, 1500);
+               timeout = setTimeout(() => optionsContainer.innerHTML = this.iconUtils.ellipsis, 1500);
             });
             //#endregion
 
@@ -372,10 +372,13 @@
          * @param {webview} webview the webview to update
          */
         showReaderView(webview) {
+            const dialogTab = webview.parentElement;
             if (webview.src.includes(this.READER_VIEW_URL)) {
                 webview.src = webview.src.replace(this.READER_VIEW_URL, '');
+                dialogTab.classList.remove('reader-open');
             } else {
                 webview.src = this.READER_VIEW_URL + webview.src;
+                dialogTab.classList.add('reader-open');
             }
         }
 
@@ -714,6 +717,7 @@
 
         start() {
             this.element.style.visibility = 'visible';
+            this.element.classList.remove('is-complete');
             this.progress = 0;
 
             if (!this.interval) {
@@ -729,6 +733,8 @@
         }
 
         clear(loadStop = false) {
+            this.element.classList.add('is-complete');
+
             if (this.interval) {
                 clearInterval(this.interval);
                 this.interval = null;
