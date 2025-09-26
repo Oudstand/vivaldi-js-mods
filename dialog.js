@@ -59,7 +59,7 @@
 
             new WebsiteInjectionUtils(
                 (navigationDetails) => this.getWebviewConfig(navigationDetails),
-                (url, fromPanel) => this.dialogTab(url, fromPanel),
+                (url, fromPanel, origin) => this.dialogTab(url, fromPanel, origin), // pass origin through
                 ICON_CONFIG
             );
         }
@@ -115,32 +115,68 @@
         }
 
         /**
-         * Removes the dialog for a giveb webview
+         * Removes the dialog for a given webview
          * @param webviewId The id of the webview
          */
         removeDialog(webviewId) {
             const data = this.webviews.get(webviewId);
-            if (data) {
-                chrome.tabs.query({}, (tabs) => {
-                    const tab = tabs.find(tab => tab.vivExtData && tab.vivExtData.includes(`${webviewId}tabId`));
-                    if (tab) chrome.tabs.remove(tab.id);
-                });
+            if (!data) return;
 
-                data.divContainer.remove();
-                chrome.tabs.onRemoved.removeListener(data.tabCloseListener);
-                this.webviews.delete(webviewId);
-            }
+            const container = data.divContainer;
+            const dialogTab = container.querySelector('.dialog-tab');
+
+            if (container.dataset.closing === '1') return;
+            container.dataset.closing = '1';
+
+            const pointerX = Number(container.dataset.pointerX ?? window.innerWidth / 2);
+            const pointerY = Number(container.dataset.pointerY ?? window.innerHeight / 2);
+
+            // Recompute anchored translate for current layout
+            this.setAnchoredTransformVars(dialogTab, pointerX, pointerY);
+
+            requestAnimationFrame(() => {
+                container.classList.remove('is-open');   // overlay fades out via transition
+                container.classList.add('is-leave');     // optional: block clicks
+                // remove blur immediately so background is crisp while closing
+                container.style.backdropFilter = 'none';
+
+                dialogTab.classList.add('animating-close');
+
+                const finishRemoval = () => {
+                    chrome.tabs.query({}, (tabs) => {
+                        const tab = tabs.find(tab => tab.vivExtData && tab.vivExtData.includes(`${webviewId}tabId`));
+                        if (tab) chrome.tabs.remove(tab.id);
+                    });
+
+                    container.classList.remove('is-leave');
+                    data.divContainer.remove();
+                    chrome.tabs.onRemoved.removeListener(data.tabCloseListener);
+                    this.webviews.delete(webviewId);
+                };
+
+                const onCloseEnd = (e) => {
+                    if (e.animationName === 'card-close-anchored') {
+                        dialogTab.removeEventListener('animationend', onCloseEnd);
+                        finishRemoval();
+                    }
+                };
+                dialogTab.addEventListener('animationend', onCloseEnd);
+
+                // Fallback in case animationend doesn't fire
+                setTimeout(finishRemoval, 800);
+            });
         }
 
         /**
          * Checks if the current window is the correct window to show the dialog and then opens the dialog
          * @param {string} linkUrl the url to load
          * @param {boolean} fromPanel indicates whether the dialog is opened from a panel
+         * @param {{x:number, y:number}} origin the viewport coordinates to anchor the animation
          */
-        dialogTab(linkUrl, fromPanel = undefined) {
+        dialogTab(linkUrl, fromPanel = undefined, origin = undefined) {
             chrome.windows.getLastFocused((window) => {
                 if (window.id === vivaldiWindowId && window.state !== chrome.windows.WindowState.MINIMIZED) {
-                    this.showDialog(linkUrl, fromPanel);
+                    this.showDialog(linkUrl, fromPanel, origin); // pass origin through
                 }
             });
         }
@@ -149,8 +185,9 @@
          * Opens a link in a dialog like display in the current visible tab
          * @param {string} linkUrl the url to load
          * @param {boolean} fromPanel indicates whether the dialog is opened from a panel
+         * @param {{x:number, y:number}} origin the viewport coordinates to anchor the animation
          */
-        showDialog(linkUrl, fromPanel) {
+        showDialog(linkUrl, fromPanel, origin) {
             const dialogContainer = document.createElement('div'),
                 dialogTab = document.createElement('div'),
                 webview = document.createElement('webview'),
@@ -187,6 +224,8 @@
             dialogTab.setAttribute('class', 'dialog-tab');
             dialogTab.style.width = 85 - 5 * this.webviews.size + '%';
             dialogTab.style.height = 95 - 5 * this.webviews.size + '%';
+            // keep hidden until anchored start is ready
+            dialogTab.style.visibility = 'hidden';
             //#endregion
 
             //#region optionsContainer properties
@@ -202,7 +241,7 @@
                 clearTimeout(timeout);
             });
             optionsContainer.addEventListener('mouseleave', () => {
-               timeout = setTimeout(() => optionsContainer.innerHTML = this.iconUtils.ellipsis, 1500);
+                timeout = setTimeout(() => optionsContainer.innerHTML = this.iconUtils.ellipsis, 1500);
             });
             //#endregion
 
@@ -227,7 +266,12 @@
             //#region dialogContainer properties
             dialogContainer.setAttribute('class', 'dialog-container');
 
-            let stopEvent = (event) => {
+            const pointerX = (origin?.x ?? window.innerWidth / 2);
+            const pointerY = (origin?.y ?? window.innerHeight / 2);
+            dialogContainer.dataset.pointerX = String(pointerX);
+            dialogContainer.dataset.pointerY = String(pointerY);
+
+            const stopEvent = (event) => {
                 event.preventDefault();
                 event.stopPropagation();
 
@@ -277,10 +321,52 @@
 
             dialogContainer.appendChild(dialogTab);
 
-            // Get for current tab and append divContainer
-            fromPanel
-                ? document.querySelector('#browser').appendChild(dialogContainer)
-                : document.querySelector('.active.visible.webpageview').appendChild(dialogContainer);
+            (fromPanel ? document.querySelector('#browser') : document.querySelector('.active.visible.webpageview')).appendChild(dialogContainer);
+
+            // Two-frame start: measure anchored start, then overlay, then animate (no delay)
+            requestAnimationFrame(() => {
+                const t = this.setAnchoredTransformVars(dialogTab, pointerX, pointerY); // sets --tx0/--ty0/--s0 and returns numbers
+                // show anchored start inline immediately
+                dialogTab.style.transform = `translate(${t.t0x}px, ${t.t0y}px) scale(${t.s0})`;
+                dialogTab.style.opacity = '0';
+                dialogTab.style.visibility = 'visible';
+                dialogTab.getBoundingClientRect();
+
+                requestAnimationFrame(() => {
+                    dialogContainer.classList.add('is-open');
+                    dialogTab.classList.add('animating-open');
+
+                    const onOpenEnd = (e) => {
+                        if (e.animationName === 'card-open-anchored') {
+                            dialogTab.classList.remove('animating-open');
+                            // cleanup inline styles
+                            dialogTab.style.removeProperty('transform');
+                            dialogTab.style.removeProperty('opacity');
+                            dialogTab.removeEventListener('animationend', onOpenEnd);
+                        }
+                    };
+                    dialogTab.addEventListener('animationend', onOpenEnd);
+                });
+            });
+        }
+
+        /**
+         * Compute anchored translate for the current layout so that the dialog
+         * grows exactly from (viewportX, viewportY) when scaling from s0 → 1.
+         * We precompute the starting translation T0 = (1 - s0) * (P - L).
+         */
+        setAnchoredTransformVars(dialogTab, viewportX, viewportY, s0 = 0.1) {
+            const rect = dialogTab.getBoundingClientRect();
+            const dx = viewportX - rect.left;
+            const dy = viewportY - rect.top;
+            const t0x = (1 - s0) * dx;
+            const t0y = (1 - s0) * dy;
+
+            dialogTab.style.setProperty('--s0', String(s0));
+            dialogTab.style.setProperty('--tx0', `${t0x}px`);
+            dialogTab.style.setProperty('--ty0', `${t0y}px`);
+
+            return {t0x, t0y, s0};
         }
 
         /**
@@ -407,7 +493,7 @@
             // react on demand to open a dialog
             chrome.runtime.onMessage.addListener((message) => {
                 if (message.url) {
-                    openDialog(message.url, message.fromPanel);
+                    openDialog(message.url, message.fromPanel, message.origin);
                 }
             });
         }
@@ -429,15 +515,8 @@
         constructor(fromPanel, config) {
             this.fromPanel = fromPanel;
             this.config = config;
-
-
             this.icon = null;
-
-            this.timers = {
-                showIcon: null,
-                showDialog: null,
-                hideIcon: null
-            }
+            this.timers = {showIcon: null, showDialog: null, hideIcon: null}
 
             this.#initialize();
         }
@@ -464,7 +543,14 @@
                 if (event.ctrlKey && event.altKey && [0, 1].includes(event.button)) {
                     this.#callDialog(event);
                 } else if (event.button === 1) {
-                    holdTimerForMiddleClick = setTimeout(() => this.#callDialog(event), 500);
+                    // MMB-hold: cache link+coords NOW, use after timeout (prevents drift)
+                    const link = this.#getLinkElement(event);
+                    if (!link) return;
+                    const px = event.clientX, py = event.clientY;
+                    const href = link.href;
+                    holdTimerForMiddleClick = setTimeout(() => {
+                        this.#sendDialogMessage(href, px, py);
+                    }, 500);
                 }
             });
 
@@ -493,6 +579,7 @@
                 });
 
                 this.icon.dataset.targetUrl = link.href;
+                this.currentLinkEl = link;
 
                 link.addEventListener('mouseleave', this.#hideLinkIcon.bind(this));
             }, this.config.showIconDelay));
@@ -503,13 +590,28 @@
             icon.className = `link-icon ${this.config.linkIcon}`;
             icon.style.display = 'none';
 
+            const getLinkCenter = () => {
+                const el = this.currentLinkEl;
+                if (el) {
+                    const r = el.getBoundingClientRect();
+                    return {x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2)};
+                }
+                return {x: Math.round(window.innerWidth / 2), y: Math.round(window.innerHeight / 2)};
+            };
+
             if (this.config.linkIconInteractionOnHover) {
                 icon.addEventListener('mouseenter', () => {
-                    this.timers.showDialog = setTimeout(() => this.#sendDialogMessage(this.icon.dataset.targetUrl), this.config.showDialogOnHoverDelay);
+                    this.timers.showDialog = setTimeout(() => {
+                        const {x, y} = getLinkCenter();
+                        this.#sendDialogMessage(this.icon.dataset.targetUrl, x, y);
+                    }, this.config.showDialogOnHoverDelay);
                 });
                 icon.addEventListener('mouseleave', () => clearTimeout(this.timers.showDialog));
             } else {
-                icon.addEventListener('click', () => this.#sendDialogMessage(this.icon.dataset.targetUrl));
+                icon.addEventListener('click', () => {
+                    const {x, y} = getLinkCenter();
+                    this.#sendDialogMessage(this.icon.dataset.targetUrl, x, y);
+                });
                 icon.addEventListener('mouseenter', () => clearTimeout(this.timers.hideIcon));
                 icon.addEventListener('mouseleave', this.#hideLinkIcon.bind(this));
             }
@@ -529,15 +631,15 @@
             return event.target.closest('a[href]:not([href="#"])');
         }
 
-        #sendDialogMessage(url) {
-            chrome.runtime.sendMessage({url, fromPanel: this.fromPanel});
+        #sendDialogMessage(url, x, y) {
+            chrome.runtime.sendMessage({url, fromPanel: this.fromPanel, origin: {x, y}});
         }
 
         #callDialog(event) {
             let link = this.#getLinkElement(event);
             if (link) {
                 event.preventDefault();
-                this.#sendDialogMessage(link.href);
+                this.#sendDialogMessage(link.href, event.clientX, event.clientY);
             }
         };
 
@@ -551,7 +653,7 @@
                     z-index: 9999;
                     transition: opacity 0.2s ease;
                 }
-            
+
                 .link-icon:hover {
                     opacity: 0.9;
                 }
@@ -763,7 +865,7 @@
         static SVG = {
             ellipsis: '<svg xmlns="http://www.w3.org/2000/svg" height="2em" viewBox="0 0 448 512"><path d="M8 256a56 56 0 1 1 112 0A56 56 0 1 1 8 256zm160 0a56 56 0 1 1 112 0 56 56 0 1 1 -112 0zm216-56a56 56 0 1 1 0 112 56 56 0 1 1 0-112z"/></svg>',
             readerView: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path d="M3 4h10v1H3zM3 6h10v1H3zM3 8h10v1H3zM3 10h6v1H3z"></path></svg>',
-            newTab: '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 512 512"><path d="M320 0c-17.7 0-32 14.3-32 32s14.3 32 32 32h82.7L201.4 265.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L448 109.3V192c0 17.7 14.3 32 32 32s32-14.3 32-32V32c0-17.7-14.3-32-32-32H320zM80 32C35.8 32 0 67.8 0 112V432c0 44.2 35.8 80 80 80H400c44.2 0 80-35.8 80-80V320c0-17.7-14.3-32-32-32s-32 14.3-32 32V432c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V112c0-8.8 7.2-16 16-16H192c17.7 0 32-14.3 32-32s-14.3-32-32-32H80z"/></svg>',
+            newTab: '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 512 512"><path d="M320 0c-17.7 0-32 14.3-32 32s14.3 32 32 32h82.7L201.4 265.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L448 109.3V192c0 17.7 14.3 32 32 32s32-14.3 32-32V32c0-17.7-14.3-32-32-32H320zM80 32C35.8 32 0 67.8 0 112V432c0 44.2 35.8 80 80 80H400c44.2 0 80-35.8 80-80V320c0-17.7-14.3-32-32-32s-32-14.3-32-32V432c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V112c0-8.8 7.2-16 16-16H192c17.7 0 32-14.3 32-32s-14.3-32-32-32H80z"/></svg>',
             backgroundTab: '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M384 32c35.3 0 64 28.7 64 64V416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96C0 60.7 28.7 32 64 32H384zM160 144c-13.3 0-24 10.7-24 24s10.7 24 24 24h94.1L119 327c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l135-135V328c0 13.3 10.7 24 24 24s24-10.7 24-24V168c0-13.3-10.7-24-24-24H160z"/></svg>'
         };
 
@@ -771,11 +873,11 @@
         static VIVALDI_BUTTONS = [{
             name: 'back',
             buttonName: 'Back',
-            fallback: '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.2 288 416 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-306.7 0L214.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg>'
+            fallback: '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.2 288 416 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-306.7 0L214.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5 0-45.3L54.6 192z"/></svg>'
         }, {
             name: 'forward',
             buttonName: 'Forward',
-            fallback: '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M438.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-160-160c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L338.8 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l306.7 0L233.4 393.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l160-160z"/></svg>'
+            fallback: '<svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 448 512"><path d="M438.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-160-160c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0-45.3L338.8 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l306.7 0L233.4 393.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l160-160z"/></svg>'
         }, {
             name: 'reload',
             buttonName: 'Reload',
